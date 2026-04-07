@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "ru.sosiskibot.luckystar.app-debug-60:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "ru.sosiskibot.luckystar.app-main-62:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "ru.sosiskibot.luckystar.app-debug-60:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "ru.sosiskibot.luckystar.app-main-62:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "ru.sosiskibot.luckystar.app-debug-60:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "ru.sosiskibot.luckystar.app-main-62:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "ru.sosiskibot.luckystar.app-debug-60:/drawable_ic_launcher_background.xml.flat",
+        "source": "ru.sosiskibot.luckystar.app-main-62:/drawable/ic_launcher_background.xml"
+    }
+]

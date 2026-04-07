@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "ru.sosiskibot.luckystar.app-mergeDebugResources-58:/values-v23/values-v23.xml",
+            "map": [
+                {
+                    "source": "/root/.gradle/caches/8.10.2/transforms/2262e0f71799dd1dc28d2419239984c1/transformed/work-runtime-2.10.1/res/values-v23/values-v23.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,121",
+                        "endColumns": "65,62",
+                        "endOffsets": "116,179"
+                    }
+                }
+            ]
+        }
+    ]
+}
