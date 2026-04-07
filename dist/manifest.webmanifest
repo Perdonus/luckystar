@@ -1,0 +1,23 @@
+{
+  "name": "Lucky Star Library",
+  "short_name": "LuckyStar",
+  "start_url": "/luckystar/",
+  "scope": "/luckystar/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f1020",
+  "theme_color": "#0f1020",
+  "description": "Оффлайн-ридер манги Lucky Star со всеми главами и версиями.",
+  "icons": [
+    {
+      "src": "/luckystar/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/luckystar/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
