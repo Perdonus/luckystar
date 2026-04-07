@@ -1,8 +1,8 @@
 import { unzipSync } from 'fflate';
 import './styles.css';
 
-const STORAGE_KEY = 'luckystar-library-state-v4';
-const DOWNLOAD_CACHE = 'luckystar-downloads-v4';
+const STORAGE_KEY = 'luckystar-library-state-v5';
+const DOWNLOAD_CACHE = 'luckystar-downloads-v5';
 const MANGA_BASE = '../raki_suta/';
 const app = document.querySelector('#app');
 
@@ -24,6 +24,7 @@ const state = {
   zoom: 1,
   pointerDownX: 0,
   pointerDownY: 0,
+  pointerDownAt: 0,
   offlineCount: 0,
   touchZoom: null,
   installPrompt: null,
@@ -32,6 +33,12 @@ const state = {
   chapterDownloadProgress: {},
   observer: null,
   scrollSyncFrame: null,
+  flipDirection: 'forward',
+  readerReady: false,
+  activeDownloads: 0,
+  horizontalWheelAccumulator: 0,
+  lastTouchEndAt: 0,
+  touchGestureActive: false,
 };
 
 function defaultReadState() {
@@ -42,6 +49,8 @@ function defaultReadState() {
     zoom: 1,
     mode: 'book',
     downloads: {},
+    completedIntro: false,
+    installDismissed: false,
   };
 }
 
@@ -92,6 +101,8 @@ function renderShell() {
   const shellClass = ['app-shell', state.chapter ? 'has-reader' : 'library-only', state.mobileLibraryOpen ? 'sidebar-open' : ''].filter(Boolean).join(' ');
   const asideClass = ['sidebar', 'glass', state.chapter ? 'reading' : '', state.mobileLibraryOpen ? 'opened' : ''].filter(Boolean).join(' ');
   const heroClass = ['hero', 'glass', state.chapter ? 'compact' : ''].filter(Boolean).join(' ');
+  const installVisible = state.installPrompt && !state.readState.installDismissed;
+  const currentProgress = state.chapter ? getChapterPercent(state.chapter) : 0;
   app.innerHTML = `
     <div class="${shellClass}">
       <aside class="${asideClass}">
@@ -99,11 +110,11 @@ function renderShell() {
           <div>
             <p class="eyebrow">sosiskibot.ru/luckystar</p>
             <h1>Lucky Star Library</h1>
-            <p class="brand-subtitle">Все версии манги, быстрый оффлайн, возврат к месту чтения.</p>
+            <p class="brand-subtitle">Все версии манги, красивый 3D-reader, оффлайн на телефоне и точный возврат к чтению.</p>
           </div>
           <div class="header-actions">
             <button class="download-all accent" id="download-all">Скачать всё</button>
-            <button id="install-app" ${state.installPrompt ? '' : 'hidden'}>Установить</button>
+            <button id="install-app" ${installVisible ? '' : 'hidden'}>Установить app</button>
           </div>
         </div>
         <div class="stats-row">
@@ -120,7 +131,11 @@ function renderShell() {
           </div>
         </div>
         <div class="library-note glass-subtle">
-          <strong>Мобила:</strong> установи как приложение, качай главы или всё сразу, потом читает полностью без сети из локального кэша.
+          <strong>Мобила:</strong> ставишь как приложение, жмёшь скачать, потом читаешь вообще без интернета. Позиция страницы сохраняется автоматически.
+          <div class="library-actions">
+            <button class="accent" id="library-download-current" ${state.chapter ? '' : 'disabled'}>${state.chapter ? (state.readState.downloads[state.chapter.file] ? 'Перекачать текущую' : 'Скачать текущую') : 'Открой главу'}</button>
+            <button id="library-open-current" ${state.chapter ? '' : 'disabled'}>${state.chapter ? 'К текущей главе' : 'Нет главы'}</button>
+          </div>
         </div>
         <div class="chapter-list" id="chapter-list"></div>
       </aside>
@@ -129,7 +144,7 @@ function renderShell() {
           <div>
             <p class="eyebrow">Progressive Web App</p>
             <h2>Оффлайн-читалка Lucky Star</h2>
-            <p>На ПК — клавиатура, мышь, колесо, трекпад и 3D-ish перелистывание. На телефоне — свайпы, edge taps, зум только страницы, установка как app и возврат ровно на место.</p>
+            <p>ПК: клава, мышь, колесо, трекпад, клики по краям и 3D перелистывание. Телефон: свайпы, edge taps, жесты зума только по странице, режим установленного приложения и оффлайн библиотека.</p>
           </div>
           <div class="hero-actions">
             <button class="accent" id="resume-reading">Продолжить чтение</button>
@@ -137,10 +152,23 @@ function renderShell() {
             <button id="toggle-library" class="mobile-only">${state.mobileLibraryOpen ? 'Скрыть главы' : 'Показать главы'}</button>
           </div>
         </section>
+        ${state.chapter ? `
+          <section class="now-reading glass-subtle">
+            <div>
+              <p class="eyebrow">Сейчас читаешь</p>
+              <strong>${escapeHtml(state.chapter.title)}</strong>
+              <span>${currentProgress}% · страница ${state.currentPage + 1} / ${state.pages.length || 0}</span>
+            </div>
+            <div class="now-reading-chips">
+              <span class="chip ${state.readState.chapterDone[state.chapter.id] ? 'done' : 'progress'}">${state.readState.chapterDone[state.chapter.id] ? 'прочитано' : `${currentProgress}%`}</span>
+              <span class="chip ${state.readState.downloads[state.chapter.file] ? 'offline' : ''}">${state.readState.downloads[state.chapter.file] ? 'offline' : 'online'}</span>
+            </div>
+          </section>
+        ` : ''}
         <section class="reader-section glass" id="reader-section">
           <div class="empty-state">
             <h3>Выбери главу слева</h3>
-            <p>Здесь уже лежат все версии. Есть оффлайн-загрузка, прогресс, статусы прочтения, плавный book-mode и адаптация под телефоны.</p>
+            <p>Все версии на месте. Есть download, прогресс, статусы прочтения, адаптация под телефон и красивый режим книги.</p>
           </div>
         </section>
       </main>
@@ -172,10 +200,14 @@ function chapterCardMarkup(chapter) {
   const progress = state.readState.chapterProgress[chapter.id];
   const done = Boolean(state.readState.chapterDone[chapter.id]);
   const downloaded = Boolean(state.readState.downloads[chapter.file]);
-  const percent = progress?.pageCount ? Math.min(100, Math.round(((progress.page + 1) / progress.pageCount) * 100)) : 0;
+  const percent = getChapterPercent(chapter);
   const downloadPercent = state.chapterDownloadProgress[chapter.file] || 0;
   const statusChip = done ? '<span class="chip done">✓ прочитано</span>' : (progress ? `<span class="chip progress">${percent}%</span>` : '<span class="chip">новая</span>');
-  const progressBar = downloadPercent > 0 && downloadPercent < 100 ? `<div class="mini-progress"><span style="width:${downloadPercent}%"></span></div>` : '';
+  const progressBar = `
+    <div class="mini-progress ${done ? 'done' : ''}">
+      <span style="width:${Math.max(percent, downloadPercent > 0 && downloadPercent < 100 ? downloadPercent : percent)}%"></span>
+    </div>
+  `;
   return `
     <button class="chapter-card glass ${state.chapter?.id === chapter.id ? 'selected' : ''}" data-chapter-id="${chapter.id}">
       <img src="./${chapter.thumb}" alt="${escapeHtml(chapter.title)}" loading="lazy" />
@@ -208,6 +240,7 @@ function renderReader() {
   const progress = Math.round(((state.currentPage + 1) / Math.max(state.pages.length, 1)) * 100);
   const chapterDownloaded = Boolean(state.readState.downloads[state.chapter.file]);
   const chapterProgress = state.chapterDownloadProgress[state.chapter.file] || 0;
+  const chapterPercent = getChapterPercent(state.chapter);
   section.innerHTML = `
     <div class="reader-header">
       <div>
@@ -227,16 +260,19 @@ function renderReader() {
       <div class="reader-pill">${chapterDownloaded ? 'Оффлайн готово' : 'Чтение из сети / локалки'}</div>
       <div class="reader-pill">${state.mode === 'book' ? '3D flip режим' : 'вертикальная лента'}</div>
       <div class="reader-pill">Zoom: ${Math.round(state.zoom * 100)}%</div>
+      <div class="reader-pill">Прогресс: ${chapterPercent}%</div>
     </div>
     <div class="reader-stage ${state.mode}" id="reader-stage">
       <button class="nav-zone left" id="prev-page" aria-label="Назад"></button>
       <div class="book-scene ${state.mode === 'book' ? 'active' : ''}">
-        <div class="book-frame ${doublePage ? '' : 'single'}">
+        <div class="book-frame ${doublePage ? '' : 'single'} ${state.readerReady ? 'ready' : ''} ${state.flipDirection}">
+          <div class="book-depth-shadow"></div>
           ${leftPage ? pageSheetMarkup(leftPage, 'left-sheet', 'left page') : ''}
           ${rightPage ? pageSheetMarkup(rightPage, `right-sheet ${doublePage ? '' : 'solo'}`, 'right page') : ''}
-          <div class="page-flip" id="page-flip"></div>
+          <div class="page-flip ${state.flipDirection}" id="page-flip"></div>
           <div class="page-glow"></div>
           <div class="book-spine"></div>
+          <div class="book-reflection"></div>
         </div>
       </div>
       <div class="scroll-pages ${state.mode === 'scroll' ? 'active' : ''}" id="scroll-pages">
@@ -252,15 +288,22 @@ function renderReader() {
         <button id="zoom-in">+</button>
       </div>
     </div>
+    <div class="reader-mobile-bar mobile-reader-only">
+      <button id="mobile-prev">←</button>
+      <button id="mobile-menu">Главы</button>
+      <button id="mobile-download">${chapterDownloaded ? 'Offline ✓' : 'Скачать'}</button>
+      <button id="mobile-next">→</button>
+    </div>
     <div class="hint-row">
-      <span>ПК: ←/→, PgUp/PgDn, Space, Home/End, J/K, wheel, горизонтальный трекпад, клики по краям.</span>
-      <span>Телефон: свайпы, тапы по краям, pinch/кнопки для zoom страницы, возврат на точную страницу.</span>
+      <span>ПК: ←/→, PgUp/PgDn, Space, Home/End, J/K, wheel, трекпад, клики по краям.</span>
+      <span>Телефон: свайпы, тапы по краям, pinch/кнопки zoom, возврат на точную страницу.</span>
     </div>
   `;
   bindReaderEvents();
   applyZoom();
   syncScrollPageMarker();
   if (state.mode === 'scroll') queueScrollMarkerSync();
+  state.readerReady = true;
 }
 
 function pageSheetMarkup(page, className, alt) {
@@ -276,6 +319,7 @@ async function openChapter(chapterId) {
   if (!chapter) return;
   cleanupPageUrls();
   state.chapter = chapter;
+  state.readerReady = false;
   try {
     const cached = await getFromCache(chapter.file);
     const bytes = cached || await fetchZip(chapter.file);
@@ -292,7 +336,7 @@ async function openChapter(chapterId) {
     state.currentPage = Math.min(saved?.page ?? 0, Math.max(state.pages.length - 1, 0));
     state.currentSpread = Math.floor(state.currentPage / 2);
     state.mobileLibraryOpen = false;
-    renderChapterList();
+    renderShell();
     renderReader();
     persistCurrentProgress(false);
   } catch (error) {
@@ -339,8 +383,10 @@ function bindGlobalEvents() {
   document.addEventListener('touchstart', (event) => {
     if (event.touches.length === 2) {
       state.touchZoom = pinchDistance(event.touches);
+      state.touchGestureActive = true;
       return;
     }
+    state.touchGestureActive = false;
     const touch = event.changedTouches[0];
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
@@ -353,13 +399,18 @@ function bindGlobalEvents() {
         if (Math.abs(diff) > 0.02) {
           changeZoom(diff);
           state.touchZoom = next;
+          state.touchGestureActive = true;
         }
       }
     }
   }, { passive: true });
   document.addEventListener('touchend', (event) => {
+    state.lastTouchEndAt = performance.now();
     if (event.touches.length < 2) state.touchZoom = null;
-    if (!state.chapter || event.changedTouches.length !== 1) return;
+    if (!state.chapter || event.changedTouches.length !== 1 || state.touchGestureActive) {
+      state.touchGestureActive = false;
+      return;
+    }
     const touch = event.changedTouches[0];
     const dx = touch.clientX - touchStartX;
     const dy = touch.clientY - touchStartY;
@@ -415,6 +466,10 @@ function onKeyDown(event) {
     event.preventDefault();
     changeZoom(-0.1);
   }
+  if (key === 'o') {
+    event.preventDefault();
+    if (state.chapter) downloadChapter(state.chapter);
+  }
 }
 
 function onWheel(event) {
@@ -430,7 +485,11 @@ function onWheel(event) {
   const dominant = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
   if (Math.abs(dominant) < 24) return;
   event.preventDefault();
-  dominant > 0 ? nextPage() : previousPage();
+  state.horizontalWheelAccumulator += dominant;
+  if (Math.abs(state.horizontalWheelAccumulator) < 60) return;
+  const direction = state.horizontalWheelAccumulator > 0 ? 'forward' : 'backward';
+  state.horizontalWheelAccumulator = 0;
+  direction === 'forward' ? nextPage() : previousPage();
 }
 
 function attachShellEvents() {
@@ -453,6 +512,18 @@ function attachShellEvents() {
   document.querySelector('#toggle-layout')?.addEventListener('click', toggleMode);
   document.querySelector('#download-all')?.addEventListener('click', downloadAllChapters);
   document.querySelector('#install-app')?.addEventListener('click', installApp);
+  document.querySelector('#library-download-current')?.addEventListener('click', () => {
+    if (state.chapter) downloadChapter(state.chapter);
+  });
+  document.querySelector('#library-open-current')?.addEventListener('click', () => {
+    if (!state.chapter) {
+      restoreLastChapter();
+      return;
+    }
+    state.mobileLibraryOpen = false;
+    renderShell();
+    renderReader();
+  });
   document.querySelector('#toggle-library')?.addEventListener('click', () => {
     state.mobileLibraryOpen = !state.mobileLibraryOpen;
     renderShell();
@@ -477,6 +548,14 @@ function bindReaderEvents() {
   document.querySelector('#zoom-out')?.addEventListener('click', () => changeZoom(-0.12));
   document.querySelector('#mark-read')?.addEventListener('click', toggleReadState);
   document.querySelector('#chapter-download')?.addEventListener('click', () => downloadChapter(state.chapter));
+  document.querySelector('#mobile-download')?.addEventListener('click', () => downloadChapter(state.chapter));
+  document.querySelector('#mobile-menu')?.addEventListener('click', () => {
+    state.mobileLibraryOpen = !state.mobileLibraryOpen;
+    renderShell();
+    renderReader();
+  });
+  document.querySelector('#mobile-prev')?.addEventListener('click', previousPage);
+  document.querySelector('#mobile-next')?.addEventListener('click', nextPage);
   const stage = document.querySelector('#reader-stage');
   stage?.addEventListener('pointerdown', onPointerDown, { passive: true });
   stage?.addEventListener('pointerup', onPointerUp, { passive: true });
@@ -488,21 +567,24 @@ function bindReaderEvents() {
 function onPointerDown(event) {
   state.pointerDownX = event.clientX;
   state.pointerDownY = event.clientY;
+  state.pointerDownAt = performance.now();
 }
 
 function onPointerUp(event) {
   if (!state.chapter) return;
+  if (performance.now() - state.lastTouchEndAt < 420) return;
   const dx = event.clientX - state.pointerDownX;
   const dy = event.clientY - state.pointerDownY;
-  if (event.target.closest('.zoom-surface')) return;
+  const hold = performance.now() - state.pointerDownAt;
+  if (event.target.closest('.zoom-surface') && Math.abs(dx) < 8 && Math.abs(dy) < 8 && hold > 140) return;
   if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy)) {
     dx < 0 ? nextPage() : previousPage();
     return;
   }
   const bounds = event.currentTarget.getBoundingClientRect();
   const x = event.clientX - bounds.left;
-  if (x < bounds.width * 0.3) previousPage();
-  else if (x > bounds.width * 0.7) nextPage();
+  if (x < bounds.width * 0.28) previousPage();
+  else if (x > bounds.width * 0.72) nextPage();
 }
 
 function getStep() {
@@ -523,20 +605,27 @@ function jumpToPage(page, direction = 'forward') {
   const bounded = Math.max(0, Math.min(page, Math.max(state.pages.length - 1, 0)));
   state.currentPage = bounded;
   state.currentSpread = Math.floor(bounded / 2);
+  state.flipDirection = direction;
   persistCurrentProgress(false);
   renderReader();
   animateFlip(direction);
   if (state.mode === 'scroll') {
     document.querySelector(`.scroll-page[data-page-index="${bounded}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+  syncReaderHeader();
 }
 
 function animateFlip(direction) {
   const flip = document.querySelector('#page-flip');
+  const frame = document.querySelector('.book-frame');
   if (!flip || state.mode !== 'book') return;
   flip.className = `page-flip ${direction}`;
-  state.pageTurnLockedUntil = performance.now() + 520;
-  requestAnimationFrame(() => flip.classList.add('animate'));
+  frame?.classList.remove('forward-burst', 'backward-burst');
+  state.pageTurnLockedUntil = performance.now() + 620;
+  requestAnimationFrame(() => {
+    flip.classList.add('animate');
+    frame?.classList.add(direction === 'forward' ? 'forward-burst' : 'backward-burst');
+  });
 }
 
 function pageTurnLocked() {
@@ -568,12 +657,26 @@ function applyZoom() {
   });
 }
 
+function syncReaderHeader() {
+  if (!state.chapter) return;
+  const progress = Math.round(((state.currentPage + 1) / Math.max(state.pages.length, 1)) * 100);
+  const chapterProgress = getChapterPercent(state.chapter);
+  document.querySelectorAll('.reader-header span, .now-reading span').forEach((el, index) => {
+    if (index === 0) el.textContent = `${state.currentPage + 1} / ${state.pages.length} · ${progress}%`;
+    if (index === 1) el.textContent = `${chapterProgress}% · страница ${state.currentPage + 1} / ${state.pages.length || 0}`;
+  });
+  const slider = document.querySelector('#page-slider');
+  if (slider) slider.value = String(state.currentPage);
+  const pill = document.querySelectorAll('.reader-pill')[3];
+  if (pill) pill.textContent = `Прогресс: ${chapterProgress}%`;
+}
+
 function toggleReadState() {
   if (!state.chapter) return;
   if (state.readState.chapterDone[state.chapter.id]) delete state.readState.chapterDone[state.chapter.id];
   else state.readState.chapterDone[state.chapter.id] = true;
   saveState();
-  renderChapterList();
+  renderShell();
   renderReader();
 }
 
@@ -584,6 +687,11 @@ function persistCurrentProgress(reRender = true) {
   if (state.currentPage >= state.pages.length - 1 && state.pages.length > 0) state.readState.chapterDone[state.chapter.id] = true;
   saveState();
   if (reRender) renderChapterList();
+}
+
+function getChapterPercent(chapter) {
+  const progress = state.readState.chapterProgress[chapter.id];
+  return progress?.pageCount ? Math.min(100, Math.round(((progress.page + 1) / progress.pageCount) * 100)) : 0;
 }
 
 function countRead() {
@@ -625,7 +733,7 @@ async function downloadAllChapters() {
     state.downloadTarget = null;
     state.downloadProgress = 0;
     updateDownloadButtons();
-    renderChapterList();
+    renderShell();
     if (state.chapter) renderReader();
   }
 }
@@ -636,6 +744,7 @@ async function downloadChapter(chapter, rerender = true, bulkMode = false) {
     state.downloading = true;
     state.downloadTarget = chapter.file;
   }
+  state.activeDownloads += 1;
   state.chapterDownloadProgress[chapter.file] = state.chapterDownloadProgress[chapter.file] || 0;
   updateDownloadButtons();
   try {
@@ -672,6 +781,7 @@ async function downloadChapter(chapter, rerender = true, bulkMode = false) {
     await refreshOfflineCount();
     if (!bulkMode) showToast(`Глава ${chapter.title} скачана`);
   } finally {
+    state.activeDownloads = Math.max(0, state.activeDownloads - 1);
     state.chapterDownloadProgress[chapter.file] = 100;
     if (!bulkMode) {
       state.downloading = false;
@@ -727,6 +837,12 @@ function updateDownloadButtons() {
     const progress = state.chapterDownloadProgress[state.chapter.file] || state.downloadProgress;
     const downloaded = Boolean(state.readState.downloads[state.chapter.file]);
     chapterBtn.textContent = state.downloading && state.downloadTarget === state.chapter.file ? `Скачивание ${progress}%` : (downloaded ? 'Перекачать' : 'Скачать главу');
+  }
+  const mobileBtn = document.querySelector('#mobile-download');
+  if (mobileBtn && state.chapter) {
+    mobileBtn.textContent = state.downloading && state.downloadTarget === state.chapter.file
+      ? `Загрузка ${state.chapterDownloadProgress[state.chapter.file] || state.downloadProgress}%`
+      : (state.readState.downloads[state.chapter.file] ? 'Offline ✓' : 'Скачать');
   }
 }
 
@@ -809,6 +925,8 @@ async function installApp() {
   if (!state.installPrompt) return;
   await state.installPrompt.prompt();
   state.installPrompt = null;
+  state.readState.installDismissed = true;
+  saveState();
   renderShell();
   if (state.chapter) renderReader();
 }
@@ -854,7 +972,9 @@ window.render_game_to_text = () => JSON.stringify({
   downloading: state.downloading,
   selectedTitle: state.chapter?.title || null,
   mobileLibraryOpen: state.mobileLibraryOpen,
+  activeDownloads: state.activeDownloads,
+  flipDirection: state.flipDirection,
 });
-window.advanceTime = () => {};
+window.advanceTime = async (ms = 16) => new Promise((resolve) => setTimeout(resolve, ms));
 
 boot();
