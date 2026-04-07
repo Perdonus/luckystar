@@ -31,9 +31,20 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Build debug APK
-        run: ./gradlew --no-daemon assembleDebug --stacktrace --console=plain
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleDebug --stacktrace --console=plain 2>&1 | tee build.log
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luckystar-android-build-logs
+          path: android-app/build.log
+          if-no-files-found: warn
 
       - name: Upload debug APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: luckystar-android-debug
