@@ -35,6 +35,13 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon assembleDebug --stacktrace --console=plain 2>&1 | tee build.log
 
+      - name: Print build log tail on failure
+        if: failure()
+        run: |
+          echo "===== BUILD LOG TAIL ====="
+          tail -n 200 build.log || true
+          cp build.log build-error-tail.txt || true
+
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
