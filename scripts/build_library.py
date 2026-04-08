@@ -122,14 +122,20 @@ def extract_zip_images(archive: Path, out_dir: Path) -> list[dict]:
 
 
 def extract_rar_images(archive: Path, out_dir: Path) -> list[dict]:
-    cached = list_existing_pages(out_dir)
+    cached = [page for page in list_existing_pages(out_dir) if page['size'] > 0]
     if cached:
         return cached
     temp_dir = Path(tempfile.mkdtemp(prefix='luckystar_claymore_'))
     try:
-        subprocess.run(['7z', 'x', '-y', f'-o{temp_dir}', str(archive)], capture_output=True, text=True)
+        result = subprocess.run(
+            ['unar', '-force-overwrite', '-output-directory', str(temp_dir), str(archive)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f'unar failed for {archive}: {result.stderr or result.stdout}')
         files = sorted(
-            [path for path in temp_dir.rglob('*') if path.is_file() and is_image_name(path.name)],
+            [path for path in temp_dir.rglob('*') if path.is_file() and is_image_name(path.name) and path.stat().st_size > 0],
             key=lambda path: natural_key(str(path.relative_to(temp_dir))),
         )
         if not files:
@@ -227,7 +233,7 @@ def build_lucky() -> tuple[dict, list[dict]]:
     for release_id, chapter_ids in sorted(releases.items(), key=lambda item: natural_key(item[0])):
         release_items.append({
             'id': release_id,
-            'title': release_id.upper(),
+            'title': f'Том {int(release_id[1:])}',
             'type': 'version',
             'number': int(release_id[1:]),
             'chapterIds': sorted(chapter_ids, key=lambda chapter_id: chapter_sort_value(chapter_index[chapter_id]['chapter'])),
@@ -237,7 +243,7 @@ def build_lucky() -> tuple[dict, list[dict]]:
         'slug': 'lucky-star',
         'title': 'Lucky Star',
         'banner': rel_url(BANNERS_DIR / 'lucky-star.svg'),
-        'releaseLabel': 'Версии',
+        'releaseLabel': 'Тома',
         'chapterLabel': 'Главы',
         'releases': release_items,
         'chapterCount': len(chapters),
