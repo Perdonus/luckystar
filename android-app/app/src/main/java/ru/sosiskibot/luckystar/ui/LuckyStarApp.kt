@@ -68,20 +68,20 @@ import ru.sosiskibot.luckystar.offline.DownloadWorkScheduler
 import ru.sosiskibot.luckystar.offline.OfflineDownloadDatabase
 import ru.sosiskibot.luckystar.offline.OfflineDownloadRepository
 
-private data class LibraryUiState(
+data class LibraryUiState(
     val loading: Boolean = true,
     val series: List<LibrarySeries> = emptyList(),
     val selectedSeriesId: String? = null,
     val selectedReleaseId: String? = null,
 )
 
-private data class ReaderUiState(
+data class ReaderUiState(
     val chapter: LibraryChapter? = null,
     val pageIndex: Int = 0,
     val controlsVisible: Boolean = true,
 )
 
-private class LuckyStarViewModel(application: Application) : AndroidViewModel(application) {
+class LuckyStarViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = LibraryRepository(application)
     private val offlineRepository = OfflineDownloadRepository(
         application,
