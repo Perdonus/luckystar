@@ -247,7 +247,7 @@ private fun LibraryScreen(
             if (downloadState.status != "idle") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     LinearProgressIndicator(
-                        progress = { downloadState.progressFraction },
+                        progress = downloadState.progressFraction,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
@@ -452,7 +452,7 @@ private fun ReaderScreen(
                 )
                 if (downloadState.status != "idle") {
                     LinearProgressIndicator(
-                        progress = { downloadState.progressFraction },
+                        progress = downloadState.progressFraction,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

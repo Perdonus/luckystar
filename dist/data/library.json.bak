@@ -1,0 +1,1113 @@
+{
+  "schemaVersion": 3,
+  "generatedAt": "2026-04-07T00:00:00Z",
+  "series": [
+    {
+      "id": "lucky-star",
+      "slug": "lucky-star",
+      "title": "Lucky Star",
+      "banner": "/library/banners/lucky-star.svg",
+      "releaseLabel": "Версии",
+      "chapterLabel": "Главы",
+      "releases": [
+        {
+          "id": "v9",
+          "title": "v9",
+          "type": "version",
+          "number": 9,
+          "chapterIds": [
+            "9-253-manga-chan-me",
+            "9-254-manga-chan-me",
+            "9-255-manga-chan-me",
+            "9-256-manga-chan-me",
+            "9-257-manga-chan-me",
+            "9-258-manga-chan-me"
+          ]
+        }
+      ],
+      "chapterCount": 6
+    },
+    {
+      "id": "claymore",
+      "slug": "claymore",
+      "title": "Claymore",
+      "banner": "/library/banners/claymore.svg",
+      "releaseLabel": "Тома",
+      "chapterLabel": "Главы",
+      "releases": [],
+      "chapterCount": 0
+    }
+  ],
+  "chapters": [
+    {
+      "id": "9-253-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "253",
+      "title": "Глава 253",
+      "shortTitle": "Глава 253",
+      "sourceName": "9-253_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-253-manga-chan-me/001.jpeg",
+      "pageCount": 6,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/001.jpeg",
+          "size": 608818
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/002.jpeg",
+          "size": 791949
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/003.jpeg",
+          "size": 605377
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/004.jpeg",
+          "size": 981450
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/005.jpeg",
+          "size": 304443
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/006.jpeg",
+          "size": 136502
+        }
+      ]
+    },
+    {
+      "id": "9-254-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "254",
+      "title": "Глава 254",
+      "shortTitle": "Глава 254",
+      "sourceName": "9-254_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-254-manga-chan-me/001.jpeg",
+      "pageCount": 14,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/001.jpeg",
+          "size": 189995
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/002.jpeg",
+          "size": 484707
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/003.jpeg",
+          "size": 424044
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/004.jpeg",
+          "size": 766654
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/005.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/006.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/007.jpeg",
+          "size": 387332
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/008.jpeg",
+          "size": 425764
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/009.jpeg",
+          "size": 413453
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/010.jpeg",
+          "size": 467304
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/011.jpeg",
+          "size": 415464
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/012.jpeg",
+          "size": 430066
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/013.jpeg",
+          "size": 401436
+        },
+        {
+          "index": 14,
+          "name": "014.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/014.jpeg",
+          "size": 424818
+        }
+      ]
+    },
+    {
+      "id": "9-255-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "255",
+      "title": "Глава 255",
+      "shortTitle": "Глава 255",
+      "sourceName": "9-255_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-255-manga-chan-me/001.jpeg",
+      "pageCount": 15,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/001.jpeg",
+          "size": 167367
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/002.jpeg",
+          "size": 371922
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/003.jpeg",
+          "size": 401382
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/004.jpeg",
+          "size": 198780
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/005.jpeg",
+          "size": 213983
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/006.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/007.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/008.jpeg",
+          "size": 400439
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/009.jpeg",
+          "size": 339110
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/010.jpeg",
+          "size": 241739
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/011.jpeg",
+          "size": 454278
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/012.jpeg",
+          "size": 331651
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/013.jpeg",
+          "size": 376409
+        },
+        {
+          "index": 14,
+          "name": "014.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/014.jpeg",
+          "size": 404467
+        },
+        {
+          "index": 15,
+          "name": "015.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/015.jpeg",
+          "size": 393833
+        }
+      ]
+    },
+    {
+      "id": "9-256-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "256",
+      "title": "Глава 256",
+      "shortTitle": "Глава 256",
+      "sourceName": "9-256_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-256-manga-chan-me/001.jpeg",
+      "pageCount": 14,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/001.jpeg",
+          "size": 330807
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/002.jpeg",
+          "size": 401315
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/003.jpeg",
+          "size": 482439
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/004.jpeg",
+          "size": 30134
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/005.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/006.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/007.jpeg",
+          "size": 409708
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/008.jpeg",
+          "size": 444189
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/009.jpeg",
+          "size": 459545
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/010.jpeg",
+          "size": 398240
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/011.jpeg",
+          "size": 458835
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/012.jpeg",
+          "size": 454920
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/013.jpeg",
+          "size": 435055
+        },
+        {
+          "index": 14,
+          "name": "014.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/014.jpeg",
+          "size": 369408
+        }
+      ]
+    },
+    {
+      "id": "9-257-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "257",
+      "title": "Глава 257",
+      "shortTitle": "Глава 257",
+      "sourceName": "9-257_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-257-manga-chan-me/001.jpeg",
+      "pageCount": 13,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/001.jpeg",
+          "size": 348673
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/002.jpeg",
+          "size": 457595
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/003.jpeg",
+          "size": 386109
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/004.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/005.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/006.jpeg",
+          "size": 428305
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/007.jpeg",
+          "size": 392378
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/008.jpeg",
+          "size": 402962
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/009.jpeg",
+          "size": 364808
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/010.jpeg",
+          "size": 316455
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/011.jpeg",
+          "size": 538173
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/012.jpeg",
+          "size": 406830
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/013.jpeg",
+          "size": 503326
+        }
+      ]
+    },
+    {
+      "id": "9-258-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "258",
+      "title": "Глава 258",
+      "shortTitle": "Глава 258",
+      "sourceName": "9-258_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-258-manga-chan-me/001.jpeg",
+      "pageCount": 13,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/001.jpeg",
+          "size": 322681
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/002.jpeg",
+          "size": 430797
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/003.jpeg",
+          "size": 389481
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/004.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/005.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/006.jpeg",
+          "size": 371566
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/007.jpeg",
+          "size": 365397
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/008.jpeg",
+          "size": 486094
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/009.jpeg",
+          "size": 512476
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/010.jpeg",
+          "size": 481006
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/011.jpeg",
+          "size": 455555
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/012.jpeg",
+          "size": 382921
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/013.jpeg",
+          "size": 447278
+        }
+      ]
+    }
+  ],
+  "chapterIndex": {
+    "9-253-manga-chan-me": {
+      "id": "9-253-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "253",
+      "title": "Глава 253",
+      "shortTitle": "Глава 253",
+      "sourceName": "9-253_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-253-manga-chan-me/001.jpeg",
+      "pageCount": 6,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/001.jpeg",
+          "size": 608818
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/002.jpeg",
+          "size": 791949
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/003.jpeg",
+          "size": 605377
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/004.jpeg",
+          "size": 981450
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/005.jpeg",
+          "size": 304443
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-253-manga-chan-me/006.jpeg",
+          "size": 136502
+        }
+      ]
+    },
+    "9-254-manga-chan-me": {
+      "id": "9-254-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "254",
+      "title": "Глава 254",
+      "shortTitle": "Глава 254",
+      "sourceName": "9-254_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-254-manga-chan-me/001.jpeg",
+      "pageCount": 14,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/001.jpeg",
+          "size": 189995
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/002.jpeg",
+          "size": 484707
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/003.jpeg",
+          "size": 424044
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/004.jpeg",
+          "size": 766654
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/005.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/006.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/007.jpeg",
+          "size": 387332
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/008.jpeg",
+          "size": 425764
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/009.jpeg",
+          "size": 413453
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/010.jpeg",
+          "size": 467304
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/011.jpeg",
+          "size": 415464
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/012.jpeg",
+          "size": 430066
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/013.jpeg",
+          "size": 401436
+        },
+        {
+          "index": 14,
+          "name": "014.jpeg",
+          "url": "/library/series/lucky-star/v9/9-254-manga-chan-me/014.jpeg",
+          "size": 424818
+        }
+      ]
+    },
+    "9-255-manga-chan-me": {
+      "id": "9-255-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "255",
+      "title": "Глава 255",
+      "shortTitle": "Глава 255",
+      "sourceName": "9-255_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-255-manga-chan-me/001.jpeg",
+      "pageCount": 15,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/001.jpeg",
+          "size": 167367
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/002.jpeg",
+          "size": 371922
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/003.jpeg",
+          "size": 401382
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/004.jpeg",
+          "size": 198780
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/005.jpeg",
+          "size": 213983
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/006.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/007.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/008.jpeg",
+          "size": 400439
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/009.jpeg",
+          "size": 339110
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/010.jpeg",
+          "size": 241739
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/011.jpeg",
+          "size": 454278
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/012.jpeg",
+          "size": 331651
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/013.jpeg",
+          "size": 376409
+        },
+        {
+          "index": 14,
+          "name": "014.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/014.jpeg",
+          "size": 404467
+        },
+        {
+          "index": 15,
+          "name": "015.jpeg",
+          "url": "/library/series/lucky-star/v9/9-255-manga-chan-me/015.jpeg",
+          "size": 393833
+        }
+      ]
+    },
+    "9-256-manga-chan-me": {
+      "id": "9-256-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "256",
+      "title": "Глава 256",
+      "shortTitle": "Глава 256",
+      "sourceName": "9-256_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-256-manga-chan-me/001.jpeg",
+      "pageCount": 14,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/001.jpeg",
+          "size": 330807
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/002.jpeg",
+          "size": 401315
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/003.jpeg",
+          "size": 482439
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/004.jpeg",
+          "size": 30134
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/005.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/006.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/007.jpeg",
+          "size": 409708
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/008.jpeg",
+          "size": 444189
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/009.jpeg",
+          "size": 459545
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/010.jpeg",
+          "size": 398240
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/011.jpeg",
+          "size": 458835
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/012.jpeg",
+          "size": 454920
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/013.jpeg",
+          "size": 435055
+        },
+        {
+          "index": 14,
+          "name": "014.jpeg",
+          "url": "/library/series/lucky-star/v9/9-256-manga-chan-me/014.jpeg",
+          "size": 369408
+        }
+      ]
+    },
+    "9-257-manga-chan-me": {
+      "id": "9-257-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "257",
+      "title": "Глава 257",
+      "shortTitle": "Глава 257",
+      "sourceName": "9-257_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-257-manga-chan-me/001.jpeg",
+      "pageCount": 13,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/001.jpeg",
+          "size": 348673
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/002.jpeg",
+          "size": 457595
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/003.jpeg",
+          "size": 386109
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/004.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/005.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/006.jpeg",
+          "size": 428305
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/007.jpeg",
+          "size": 392378
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/008.jpeg",
+          "size": 402962
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/009.jpeg",
+          "size": 364808
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/010.jpeg",
+          "size": 316455
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/011.jpeg",
+          "size": 538173
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/012.jpeg",
+          "size": 406830
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-257-manga-chan-me/013.jpeg",
+          "size": 503326
+        }
+      ]
+    },
+    "9-258-manga-chan-me": {
+      "id": "9-258-manga-chan-me",
+      "seriesId": "lucky-star",
+      "releaseId": "v9",
+      "volume": 9,
+      "chapter": "258",
+      "title": "Глава 258",
+      "shortTitle": "Глава 258",
+      "sourceName": "9-258_manga-chan.me.zip",
+      "thumb": "/library/series/lucky-star/v9/9-258-manga-chan-me/001.jpeg",
+      "pageCount": 13,
+      "pages": [
+        {
+          "index": 1,
+          "name": "001.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/001.jpeg",
+          "size": 322681
+        },
+        {
+          "index": 2,
+          "name": "002.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/002.jpeg",
+          "size": 430797
+        },
+        {
+          "index": 3,
+          "name": "003.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/003.jpeg",
+          "size": 389481
+        },
+        {
+          "index": 4,
+          "name": "004.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/004.jpeg",
+          "size": 244321
+        },
+        {
+          "index": 5,
+          "name": "005.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/005.jpeg",
+          "size": 105336
+        },
+        {
+          "index": 6,
+          "name": "006.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/006.jpeg",
+          "size": 371566
+        },
+        {
+          "index": 7,
+          "name": "007.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/007.jpeg",
+          "size": 365397
+        },
+        {
+          "index": 8,
+          "name": "008.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/008.jpeg",
+          "size": 486094
+        },
+        {
+          "index": 9,
+          "name": "009.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/009.jpeg",
+          "size": 512476
+        },
+        {
+          "index": 10,
+          "name": "010.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/010.jpeg",
+          "size": 481006
+        },
+        {
+          "index": 11,
+          "name": "011.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/011.jpeg",
+          "size": 455555
+        },
+        {
+          "index": 12,
+          "name": "012.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/012.jpeg",
+          "size": 382921
+        },
+        {
+          "index": 13,
+          "name": "013.jpeg",
+          "url": "/library/series/lucky-star/v9/9-258-manga-chan-me/013.jpeg",
+          "size": 447278
+        }
+      ]
+    }
+  }
+}
