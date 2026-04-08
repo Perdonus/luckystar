@@ -30,16 +30,22 @@ jobs:
           yes | sdkmanager --licenses || true
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Build debug APK
         run: |
           set -o pipefail
-          ./gradlew --no-daemon assembleDebug --stacktrace --console=plain 2>&1 | tee build.log
+          ./gradlew --version 2>&1 | tee gradle-version.log
+          ./gradlew --no-daemon assembleDebug --stacktrace --info --console=plain 2>&1 | tee build.log
 
       - name: Print build log tail on failure
         if: failure()
         run: |
+          echo "===== GRADLE VERSION ====="
+          cat gradle-version.log || true
           echo "===== BUILD LOG TAIL ====="
-          tail -n 200 build.log || true
+          tail -n 400 build.log || true
           cp build.log build-error-tail.txt || true
 
       - name: Upload build logs
@@ -47,7 +53,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: luckystar-android-build-logs
-          path: android-app/build.log
+          path: |
+            android-app/build.log
+            android-app/gradle-version.log
+            android-app/build-error-tail.txt
           if-no-files-found: warn
 
       - name: Upload debug APK
