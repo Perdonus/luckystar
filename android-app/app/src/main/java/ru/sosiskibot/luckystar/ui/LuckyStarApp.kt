@@ -48,10 +48,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -173,10 +171,8 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
 @Composable
 fun LuckyStarApp() {
     val context = LocalContext.current
-    val factory = remember(context) {
-        object : ViewModelProvider.AndroidViewModelFactory(context.applicationContext as Application) {}
-    }
-    val vm: LuckyStarViewModel = viewModel(factory = factory)
+    val app = context.applicationContext as Application
+    val vm = remember(app) { LuckyStarViewModel(app) }
     val library by vm.library.collectAsStateWithLifecycle()
     val reader by vm.reader.collectAsStateWithLifecycle()
     val download by vm.downloadState.collectAsStateWithLifecycle()
