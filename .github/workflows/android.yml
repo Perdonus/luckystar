@@ -20,7 +20,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -37,7 +39,7 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew --version 2>&1 | tee gradle-version.log
-          ./gradlew --no-daemon assembleDebug --stacktrace --info --console=plain 2>&1 | tee build.log
+          ./gradlew --no-daemon --max-workers=2 assembleDebug --stacktrace --info --console=plain 2>&1 | tee build.log
 
       - name: Print build log tail on failure
         if: failure()
