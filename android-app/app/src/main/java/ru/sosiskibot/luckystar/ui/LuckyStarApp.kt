@@ -45,6 +45,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -73,7 +74,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -115,7 +115,7 @@ private enum class LibraryStage {
     CHAPTERS,
 }
 
-private data class LibraryUiState(
+data class LibraryUiState(
     val loading: Boolean = true,
     val errorMessage: String? = null,
     val series: List<LibrarySeries> = emptyList(),
@@ -125,7 +125,7 @@ private data class LibraryUiState(
     val lastChapterId: String? = null,
 )
 
-private data class ReaderUiState(
+data class ReaderUiState(
     val chapter: LibraryChapter? = null,
     val pageIndex: Int = 0,
     val controlsVisible: Boolean = true,
@@ -413,6 +413,7 @@ private fun ErrorScreen(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun LibraryScreen(
     state: LibraryUiState,
     downloadState: DownloadProgress,
@@ -763,6 +764,7 @@ private fun CompletionBadge(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun ReaderScreen(
     state: ReaderUiState,
     onBack: () -> Unit,
