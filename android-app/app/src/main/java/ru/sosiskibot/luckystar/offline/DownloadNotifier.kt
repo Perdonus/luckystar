@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
@@ -25,20 +26,29 @@ class DownloadNotifier(private val context: Context) {
     }
 
     fun asForegroundInfo(title: String, text: String, progress: Int): ForegroundInfo {
-        return ForegroundInfo(NOTIFICATION_ID, build(title, text, progress, true))
+        val notification = build(title, text, progress, true)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            ForegroundInfo(NOTIFICATION_ID, notification)
+        }
     }
 
     fun notifyCompleted() {
         nm.notify(
             NOTIFICATION_ID,
-            build("Lucky Star", "Offline library is ready", 100, false),
+            build("Библиотека", "Офлайн-библиотека готова", 100, false),
         )
     }
 
     fun notifyFailed(message: String) {
         nm.notify(
             NOTIFICATION_ID,
-            build("Lucky Star", "Download failed: $message", 0, false),
+            build("Библиотека", "Ошибка загрузки: $message", 0, false),
         )
     }
 

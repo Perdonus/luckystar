@@ -21,6 +21,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -31,6 +32,7 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 private const val DB_NAME = "offline_download.db"
 private const val DOWNLOAD_WORK_NAME = "download_all_library"
@@ -93,6 +95,12 @@ interface OfflineDownloadDao {
     @Query("SELECT pageId FROM offline_page")
     suspend fun getAllPageIds(): List<String>
 
+    @Query("SELECT * FROM offline_page")
+    suspend fun getAllOfflinePages(): List<OfflinePageEntity>
+
+    @Query("SELECT * FROM offline_page WHERE chapterId = :chapterId ORDER BY pageIndex ASC")
+    suspend fun getOfflinePagesForChapter(chapterId: String): List<OfflinePageEntity>
+
     @Query("DELETE FROM offline_page")
     suspend fun clearOfflinePages()
 }
@@ -151,22 +159,15 @@ class OfflineDownloadRepository(
         }
     }
 
-    suspend fun markQueued() {
-        dao.upsertState(
-            DownloadStateEntity(
-                status = "queued",
-                downloadedPages = 0,
-                totalPages = 0,
-                bytesDownloaded = 0,
-                updatedAt = System.currentTimeMillis(),
-            ),
-        )
-    }
-
-    suspend fun runDownloadAll(baseUrl: String, forceRedownload: Boolean = false) {
+    suspend fun runDownloadAll(
+        baseUrl: String,
+        forceRedownload: Boolean = false,
+        onProgress: suspend (DownloadProgress) -> Unit = {},
+    ) {
         val manifestUrl = normalizeBaseUrl(baseUrl) + "data/library.json"
         val manifestBody = httpGetBytes(manifestUrl)
         val manifest = json.decodeFromString<OfflineLibraryDto>(manifestBody.decodeToString())
+        persistLibraryManifestCache(context, manifestBody)
         val chapterMap = manifest.chapterIndex.ifEmpty { manifest.chapters.associateBy { it.id } }
 
         val allPages = chapterMap.values
@@ -182,14 +183,15 @@ class OfflineDownloadRepository(
             cacheRoot(context).deleteRecursively()
         }
 
-        val existingIds = dao.getAllPageIds().toHashSet()
-        writeState("running", downloadedPages, totalPages, bytesDownloaded, null)
+        val existingByPageId = dao.getAllOfflinePages().associateBy { it.pageId }
+        onProgress(writeState("running", downloadedPages, totalPages, bytesDownloaded, null))
 
         for ((chapterId, pageIndex, page) in allPages) {
             val pageId = "$chapterId:$pageIndex"
-            if (!forceRedownload && existingIds.contains(pageId)) {
+            val existing = existingByPageId[pageId]
+            if (!forceRedownload && existing != null && hasUsableLocalPage(existing)) {
                 downloadedPages += 1
-                writeState("running", downloadedPages, totalPages, bytesDownloaded, null)
+                onProgress(writeState("running", downloadedPages, totalPages, bytesDownloaded, null))
                 continue
             }
 
@@ -214,10 +216,27 @@ class OfflineDownloadRepository(
             )
 
             downloadedPages += 1
-            writeState("running", downloadedPages, totalPages, bytesDownloaded, null)
+            onProgress(writeState("running", downloadedPages, totalPages, bytesDownloaded, null))
         }
 
-        writeState("completed", downloadedPages, totalPages, bytesDownloaded, null)
+        onProgress(writeState("completed", downloadedPages, totalPages, bytesDownloaded, null))
+    }
+
+    suspend fun getOfflinePageUrl(
+        chapterId: String,
+        pageIndexCandidates: List<Int>,
+    ): String? {
+        if (pageIndexCandidates.isEmpty()) return null
+        val rows = dao.getOfflinePagesForChapter(chapterId)
+        if (rows.isEmpty()) return null
+
+        val byIndex = rows.associateBy { it.pageIndex }
+        for (candidate in pageIndexCandidates.distinct()) {
+            val entry = byIndex[candidate] ?: continue
+            if (!hasUsableLocalPage(entry)) continue
+            return File(entry.localPath).toURI().toString()
+        }
+        return null
     }
 
     suspend fun markFailed(message: String) {
@@ -237,17 +256,17 @@ class OfflineDownloadRepository(
         total: Int,
         bytes: Long,
         err: String?,
-    ) {
-        dao.upsertState(
-            DownloadStateEntity(
-                status = status,
-                downloadedPages = downloaded,
-                totalPages = total,
-                bytesDownloaded = bytes,
-                updatedAt = System.currentTimeMillis(),
-                errorMessage = err,
-            ),
+    ): DownloadProgress {
+        val entity = DownloadStateEntity(
+            status = status,
+            downloadedPages = downloaded,
+            totalPages = total,
+            bytesDownloaded = bytes,
+            updatedAt = System.currentTimeMillis(),
+            errorMessage = err,
         )
+        dao.upsertState(entity)
+        return entity.toDomain()
     }
 
     private fun httpGetBytes(url: String): ByteArray {
@@ -258,6 +277,13 @@ class OfflineDownloadRepository(
             }
             return res.body?.bytes() ?: ByteArray(0)
         }
+    }
+
+    private fun hasUsableLocalPage(entry: OfflinePageEntity): Boolean {
+        val file = File(entry.localPath)
+        if (!file.exists()) return false
+        val size = file.length()
+        return size > 0L
     }
 
     private fun DownloadStateEntity.toDomain(): DownloadProgress {
@@ -281,8 +307,8 @@ class DownloadAllWorker(
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         return DownloadNotifier(applicationContext).asForegroundInfo(
-            title = "Lucky Star",
-            text = "Preparing offline download…",
+            title = "Библиотека",
+            text = "Подготовка офлайн-загрузки…",
             progress = 0,
         )
     }
@@ -297,14 +323,37 @@ class DownloadAllWorker(
 
         return try {
             setForeground(getForegroundInfo())
-            repository.runDownloadAll(baseUrl = baseUrl, forceRedownload = force)
-            setProgress(workDataOf(KEY_PROGRESS to 100))
+            repository.runDownloadAll(
+                baseUrl = baseUrl,
+                forceRedownload = force,
+            ) { progress ->
+                val percent = (progress.progressFraction * 100f).roundToInt().coerceIn(0, 100)
+                val text = if (progress.totalPages > 0) {
+                    "${progress.downloadedPages}/${progress.totalPages} страниц"
+                } else {
+                    "Подготовка офлайн-загрузки…"
+                }
+                setForeground(
+                    DownloadNotifier(applicationContext).asForegroundInfo(
+                        title = "Библиотека",
+                        text = text,
+                        progress = percent,
+                    ),
+                )
+                setProgress(workDataOf(KEY_PROGRESS to percent))
+            }
             DownloadNotifier(applicationContext).notifyCompleted()
             Result.success()
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (io: IOException) {
+            repository.markFailed(io.message ?: "Download failed")
+            DownloadNotifier(applicationContext).notifyFailed(io.message ?: "Download failed")
+            Result.retry()
         } catch (t: Throwable) {
             repository.markFailed(t.message ?: "Download failed")
             DownloadNotifier(applicationContext).notifyFailed(t.message ?: "Download failed")
-            Result.retry()
+            Result.failure(workDataOf(KEY_ERROR to (t.message ?: "Download failed")))
         }
     }
 
@@ -337,14 +386,9 @@ class DownloadWorkScheduler(private val context: Context) {
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             DOWNLOAD_WORK_NAME,
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             req,
         )
-    }
-
-    suspend fun markQueuedInDb() {
-        val db = OfflineDownloadDatabase.get(context)
-        OfflineDownloadRepository(context, db.dao()).markQueued()
     }
 }
 
@@ -358,6 +402,22 @@ private fun localFileFor(context: Context, chapterId: String, pageIndex: Int, re
 private fun normalizeBaseUrl(base: String): String {
     val trimmed = base.trim()
     return if (trimmed.endsWith('/')) trimmed else "$trimmed/"
+}
+
+private fun libraryManifestCacheFile(context: Context): File {
+    return File(File(context.filesDir, "offline-library"), "library.json")
+}
+
+private fun persistLibraryManifestCache(context: Context, bytes: ByteArray) {
+    val target = libraryManifestCacheFile(context)
+    target.parentFile?.mkdirs()
+    val tmp = File(target.parentFile, "${target.name}.tmp")
+    tmp.writeBytes(bytes)
+    if (target.exists()) target.delete()
+    if (!tmp.renameTo(target)) {
+        target.writeBytes(bytes)
+        tmp.delete()
+    }
 }
 
 private fun resolveUrl(baseUrl: String, raw: String): String {

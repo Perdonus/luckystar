@@ -62,6 +62,7 @@ data class LibrarySeries(
     val releaseLabel: String,
     val chapterLabel: String,
     val bannerUrl: String,
+    val progress: ReadingProgressSummary = ReadingProgressSummary(),
     val releases: List<LibraryRelease>,
 )
 
@@ -70,6 +71,7 @@ data class LibraryRelease(
     val title: String,
     val type: String,
     val number: Int?,
+    val progress: ReadingProgressSummary = ReadingProgressSummary(),
     val chapters: List<LibraryChapter>,
 )
 
@@ -83,10 +85,22 @@ data class LibraryChapter(
     val title: String,
     val shortTitle: String,
     val thumb: String?,
+    val progress: ReadingProgressSummary = ReadingProgressSummary(),
     val pages: List<String>,
 )
 
 data class ReaderProgress(
     val chapterId: String,
     val pageIndex: Int,
+    val percent: Int = 0,
+    val completed: Boolean = false,
+)
+
+data class ReadingProgressSummary(
+    val percent: Int = 0,
+    val completed: Boolean = false,
+    val current: Int = 0,
+    val total: Int = 0,
+    val completedItems: Int = 0,
+    val totalItems: Int = 0,
 )
