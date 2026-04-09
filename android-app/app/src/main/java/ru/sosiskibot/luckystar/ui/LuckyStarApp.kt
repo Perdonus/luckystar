@@ -476,7 +476,7 @@ private fun LibraryScreen(
                 },
             )
         },
-    ) { _ ->
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
