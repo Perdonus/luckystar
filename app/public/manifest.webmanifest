@@ -1,13 +1,12 @@
 {
-  "name": "Lucky Star Library",
+  "name": "LuckyStar Manga Reader",
   "short_name": "LuckyStar",
   "start_url": "/luckystar/",
   "scope": "/luckystar/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#0f1020",
-  "theme_color": "#0f1020",
-  "description": "Оффлайн-ридер манги Lucky Star со всеми главами и версиями.",
+  "background_color": "#101114",
+  "theme_color": "#101114",
+  "description": "Минималистичная читалка Lucky Star и Claymore с офлайн-кэшем.",
   "icons": [
     {
       "src": "/luckystar/icons/icon-192.png",

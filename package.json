@@ -9,7 +9,11 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "fflate": "^0.8.2"
+    "@banegasn/m3-button": "^2.2.3",
+    "@banegasn/m3-card": "^1.2.3",
+    "@banegasn/m3-chip": "^1.0.3",
+    "@banegasn/m3-progress": "^1.0.3",
+    "@banegasn/m3-tabs": "^1.0.3"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

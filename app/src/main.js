@@ -1,980 +1,934 @@
-import { unzipSync } from 'fflate';
+import '@banegasn/m3-button';
+import '@banegasn/m3-card';
+import '@banegasn/m3-chip';
+import '@banegasn/m3-progress';
+import '@banegasn/m3-tabs';
 import './styles.css';
 
-const STORAGE_KEY = 'luckystar-library-state-v5';
-const DOWNLOAD_CACHE = 'luckystar-downloads-v5';
-const MANGA_BASE = '../raki_suta/';
+const STORAGE_KEY = 'luckystar-reader-state-v7';
+const LIBRARY_URL = '/luckystar/data/library.json';
 const app = document.querySelector('#app');
 
 const state = {
-  manifest: null,
-  chapters: [],
-  filtered: [],
-  chapter: null,
-  pages: [],
+  loading: true,
+  error: null,
+  library: null,
+  chapterMap: new Map(),
+  view: 'home',
+  currentSeriesId: null,
+  currentReleaseId: null,
+  currentChapterId: null,
   currentPage: 0,
-  currentSpread: 0,
-  mode: 'book',
-  search: '',
-  filter: 'all',
-  downloading: false,
-  downloadProgress: 0,
-  downloadTarget: null,
-  readState: loadState(),
+  drawerOpen: false,
+  mode: window.matchMedia('(max-width: 900px)').matches ? 'scroll' : 'book',
   zoom: 1,
-  pointerDownX: 0,
-  pointerDownY: 0,
-  pointerDownAt: 0,
-  offlineCount: 0,
-  touchZoom: null,
-  installPrompt: null,
-  mobileLibraryOpen: false,
-  pageTurnLockedUntil: 0,
-  chapterDownloadProgress: {},
-  observer: null,
-  scrollSyncFrame: null,
-  flipDirection: 'forward',
-  readerReady: false,
-  activeDownloads: 0,
-  horizontalWheelAccumulator: 0,
-  lastTouchEndAt: 0,
-  touchGestureActive: false,
+  wheelAccumulator: 0,
+  readState: loadReadState(),
+  scrollObserver: null,
+  scrollRaf: null,
+  pointer: {
+    x: 0,
+    y: 0,
+    at: 0,
+  },
 };
 
 function defaultReadState() {
   return {
     chapterProgress: {},
     chapterDone: {},
-    lastChapterId: null,
+    seriesLast: {},
+    lastSeriesId: null,
+    mode: null,
     zoom: 1,
-    mode: 'book',
-    downloads: {},
-    completedIntro: false,
-    installDismissed: false,
   };
 }
 
-function mergeReadState(raw) {
-  const base = defaultReadState();
-  return {
-    ...base,
-    ...(raw || {}),
-    chapterProgress: { ...base.chapterProgress, ...(raw?.chapterProgress || {}) },
-    chapterDone: { ...base.chapterDone, ...(raw?.chapterDone || {}) },
-    downloads: { ...base.downloads, ...(raw?.downloads || {}) },
-  };
-}
-
-function loadState() {
+function loadReadState() {
   try {
-    return mergeReadState(JSON.parse(localStorage.getItem(STORAGE_KEY)));
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const base = defaultReadState();
+    return {
+      ...base,
+      ...(raw || {}),
+      chapterProgress: { ...base.chapterProgress, ...(raw?.chapterProgress || {}) },
+      chapterDone: { ...base.chapterDone, ...(raw?.chapterDone || {}) },
+      seriesLast: { ...base.seriesLast, ...(raw?.seriesLast || {}) },
+    };
   } catch {
     return defaultReadState();
   }
 }
 
-function saveState() {
+function saveReadState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.readState));
 }
 
-async function boot() {
-  state.manifest = await fetchJson('./data/chapters.json');
-  state.chapters = state.manifest.chapters;
-  state.filtered = [...state.chapters];
-  state.zoom = state.readState.zoom || 1;
-  state.mode = state.readState.mode || (window.innerWidth < 980 ? 'scroll' : 'book');
-  state.mobileLibraryOpen = !state.readState.lastChapterId;
-  renderShell();
-  bindGlobalEvents();
-  await registerServiceWorker();
-  await refreshOfflineCount();
-  restoreLastChapter();
-}
-
-async function fetchJson(url) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to load ${url}`);
-  return response.json();
-}
-
-function renderShell() {
-  const shellClass = ['app-shell', state.chapter ? 'has-reader' : 'library-only', state.mobileLibraryOpen ? 'sidebar-open' : ''].filter(Boolean).join(' ');
-  const asideClass = ['sidebar', 'glass', state.chapter ? 'reading' : '', state.mobileLibraryOpen ? 'opened' : ''].filter(Boolean).join(' ');
-  const heroClass = ['hero', 'glass', state.chapter ? 'compact' : ''].filter(Boolean).join(' ');
-  const installVisible = state.installPrompt && !state.readState.installDismissed;
-  const currentProgress = state.chapter ? getChapterPercent(state.chapter) : 0;
-  app.innerHTML = `
-    <div class="${shellClass}">
-      <aside class="${asideClass}">
-        <div class="brand-block">
-          <div>
-            <p class="eyebrow">sosiskibot.ru/luckystar</p>
-            <h1>Lucky Star Library</h1>
-            <p class="brand-subtitle">Все версии манги, красивый 3D-reader, оффлайн на телефоне и точный возврат к чтению.</p>
-          </div>
-          <div class="header-actions">
-            <button class="download-all accent" id="download-all">Скачать всё</button>
-            <button id="install-app" ${installVisible ? '' : 'hidden'}>Установить app</button>
-          </div>
-        </div>
-        <div class="stats-row">
-          <div><strong>${state.chapters.length}</strong><span>глав</span></div>
-          <div><strong>${countRead()}</strong><span>прочитано</span></div>
-          <div><strong id="offline-size">${offlineLabel()}</strong><span>оффлайн</span></div>
-        </div>
-        <div class="controls glass-subtle">
-          <input id="search" type="search" placeholder="Поиск по главам / версиям" value="${escapeHtml(state.search)}" />
-          <div class="segmented">
-            ${filterButton('all', 'Все')}
-            ${filterButton('unread', 'Не прочитано')}
-            ${filterButton('read', 'Прочитано')}
-          </div>
-        </div>
-        <div class="library-note glass-subtle">
-          <strong>Мобила:</strong> ставишь как приложение, жмёшь скачать, потом читаешь вообще без интернета. Позиция страницы сохраняется автоматически.
-          <div class="library-actions">
-            <button class="accent" id="library-download-current" ${state.chapter ? '' : 'disabled'}>${state.chapter ? (state.readState.downloads[state.chapter.file] ? 'Перекачать текущую' : 'Скачать текущую') : 'Открой главу'}</button>
-            <button id="library-open-current" ${state.chapter ? '' : 'disabled'}>${state.chapter ? 'К текущей главе' : 'Нет главы'}</button>
-          </div>
-        </div>
-        <div class="chapter-list" id="chapter-list"></div>
-      </aside>
-      <main class="main-view">
-        <section class="${heroClass}">
-          <div>
-            <p class="eyebrow">Progressive Web App</p>
-            <h2>Оффлайн-читалка Lucky Star</h2>
-            <p>ПК: клава, мышь, колесо, трекпад, клики по краям и 3D перелистывание. Телефон: свайпы, edge taps, жесты зума только по странице, режим установленного приложения и оффлайн библиотека.</p>
-          </div>
-          <div class="hero-actions">
-            <button class="accent" id="resume-reading">Продолжить чтение</button>
-            <button id="toggle-layout">${state.mode === 'book' ? 'Scroll mode' : 'Book mode'}</button>
-            <button id="toggle-library" class="mobile-only">${state.mobileLibraryOpen ? 'Скрыть главы' : 'Показать главы'}</button>
-          </div>
-        </section>
-        ${state.chapter ? `
-          <section class="now-reading glass-subtle">
-            <div>
-              <p class="eyebrow">Сейчас читаешь</p>
-              <strong>${escapeHtml(state.chapter.title)}</strong>
-              <span>${currentProgress}% · страница ${state.currentPage + 1} / ${state.pages.length || 0}</span>
-            </div>
-            <div class="now-reading-chips">
-              <span class="chip ${state.readState.chapterDone[state.chapter.id] ? 'done' : 'progress'}">${state.readState.chapterDone[state.chapter.id] ? 'прочитано' : `${currentProgress}%`}</span>
-              <span class="chip ${state.readState.downloads[state.chapter.file] ? 'offline' : ''}">${state.readState.downloads[state.chapter.file] ? 'offline' : 'online'}</span>
-            </div>
-          </section>
-        ` : ''}
-        <section class="reader-section glass" id="reader-section">
-          <div class="empty-state">
-            <h3>Выбери главу слева</h3>
-            <p>Все версии на месте. Есть download, прогресс, статусы прочтения, адаптация под телефон и красивый режим книги.</p>
-          </div>
-        </section>
-      </main>
-    </div>
-  `;
-  renderChapterList();
-  attachShellEvents();
-}
-
-function filterButton(value, label) {
-  return `<button data-filter="${value}" class="${state.filter === value ? 'active' : ''}">${label}</button>`;
-}
-
-function renderChapterList() {
-  const list = document.querySelector('#chapter-list');
-  if (!list) return;
-  state.filtered = state.chapters.filter((chapter) => {
-    const hay = `${chapter.title} ${chapter.displayTitle} ${chapter.group}`.toLowerCase();
-    const matchesText = !state.search || hay.includes(state.search.toLowerCase());
-    if (!matchesText) return false;
-    if (state.filter === 'read') return Boolean(state.readState.chapterDone[chapter.id]);
-    if (state.filter === 'unread') return !state.readState.chapterDone[chapter.id];
-    return true;
+function normalizeLibrary(data) {
+  const series = (data.series || []).map((entry) => {
+    const normalized = { ...entry };
+    const releases = (entry.releases || []).map((release) => {
+      const copy = { ...release };
+      if (entry.id === 'lucky-star') {
+        copy.title = releaseTomTitle(copy);
+      }
+      return copy;
+    });
+    normalized.releases = releases.sort((a, b) => {
+      const an = Number.isFinite(a.number) ? a.number : Number.POSITIVE_INFINITY;
+      const bn = Number.isFinite(b.number) ? b.number : Number.POSITIVE_INFINITY;
+      if (an !== bn) return an - bn;
+      return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+    });
+    if (entry.id === 'lucky-star') {
+      normalized.releaseLabel = 'Тома';
+    }
+    return normalized;
   });
-  list.innerHTML = state.filtered.map((chapter) => chapterCardMarkup(chapter)).join('');
+
+  const chapterMap = new Map();
+  if (data.chapterIndex && typeof data.chapterIndex === 'object') {
+    for (const [id, chapter] of Object.entries(data.chapterIndex)) {
+      chapterMap.set(id, chapter);
+    }
+  }
+  if (!chapterMap.size && Array.isArray(data.chapters)) {
+    data.chapters.forEach((chapter) => chapterMap.set(chapter.id, chapter));
+  }
+
+  return {
+    ...data,
+    series,
+    chapterMap,
+  };
 }
 
-function chapterCardMarkup(chapter) {
-  const progress = state.readState.chapterProgress[chapter.id];
-  const done = Boolean(state.readState.chapterDone[chapter.id]);
-  const downloaded = Boolean(state.readState.downloads[chapter.file]);
-  const percent = getChapterPercent(chapter);
-  const downloadPercent = state.chapterDownloadProgress[chapter.file] || 0;
-  const statusChip = done ? '<span class="chip done">✓ прочитано</span>' : (progress ? `<span class="chip progress">${percent}%</span>` : '<span class="chip">новая</span>');
-  const progressBar = `
-    <div class="mini-progress ${done ? 'done' : ''}">
-      <span style="width:${Math.max(percent, downloadPercent > 0 && downloadPercent < 100 ? downloadPercent : percent)}%"></span>
-    </div>
+function releaseTomTitle(release) {
+  if (Number.isFinite(release.number)) return `Том ${release.number}`;
+  const direct = String(release.title || '').match(/^v\s*(\d+)$/i);
+  if (direct) return `Том ${direct[1]}`;
+  const fromId = String(release.id || '').match(/(\d+)/);
+  if (fromId) return `Том ${Number(fromId[1])}`;
+  return String(release.title || release.id || 'Том');
+}
+
+async function boot() {
+  applyPersistedPrefs();
+  bindGlobalEvents();
+  render();
+
+  try {
+    const response = await fetch(LIBRARY_URL, { cache: 'no-cache' });
+    if (!response.ok) throw new Error(`Failed to load library.json (${response.status})`);
+    const raw = await response.json();
+    const normalized = normalizeLibrary(raw);
+
+    state.library = normalized;
+    state.chapterMap = normalized.chapterMap;
+    state.loading = false;
+
+    await registerServiceWorker();
+    render();
+  } catch (error) {
+    console.error(error);
+    state.loading = false;
+    state.error = error instanceof Error ? error.message : 'Unknown error';
+    render();
+  }
+}
+
+function applyPersistedPrefs() {
+  state.mode = state.readState.mode || state.mode;
+  state.zoom = clamp(Number(state.readState.zoom) || 1, 0.7, 2.4);
+  applyZoomVar();
+}
+
+function render() {
+  if (state.loading) {
+    app.className = 'app-loading';
+    app.innerHTML = `
+      <main class="loading-screen">
+        <m3-progress></m3-progress>
+      </main>
+    `;
+    return;
+  }
+
+  if (state.error) {
+    app.className = 'app-error';
+    app.innerHTML = `
+      <main class="error-screen">
+        <m3-card variant="outlined" class="error-card">
+          <h2 slot="header">Ошибка загрузки</h2>
+          <p>${escapeHtml(state.error)}</p>
+          <m3-button slot="actions" variant="filled" id="retry-load">Повторить</m3-button>
+        </m3-card>
+      </main>
+    `;
+    document.querySelector('#retry-load')?.addEventListener('click', () => {
+      state.error = null;
+      state.loading = true;
+      render();
+      boot();
+    });
+    return;
+  }
+
+  if (state.view === 'home') {
+    renderHome();
+    return;
+  }
+
+  renderReader();
+}
+
+function renderHome() {
+  app.className = 'app-home';
+  const seriesCards = getSeriesList()
+    .map((series) => {
+      const { read, total } = getSeriesReadStats(series);
+      const progress = total ? (read / total) : 0;
+      const cover = series.banner || firstSeriesThumb(series);
+      return `
+        <m3-card
+          class="series-card"
+          variant="outlined"
+          clickable
+          data-series-id="${escapeAttr(series.id)}"
+          aria-label="${escapeAttr(series.title)}"
+        >
+          ${cover ? `<img slot="media" src="${escapeAttr(cover)}" alt="${escapeAttr(series.title)}" loading="lazy" />` : ''}
+          <div slot="header" class="series-header">
+            <h2>${escapeHtml(series.title)}</h2>
+          </div>
+          <div class="series-meta">
+            <m3-chip variant="filter" selected>${read}/${total}</m3-chip>
+            <m3-progress value="${progress.toFixed(4)}"></m3-progress>
+          </div>
+        </m3-card>
+      `;
+    })
+    .join('');
+
+  app.innerHTML = `
+    <main class="home-screen">
+      <section class="series-grid" aria-label="Серии манги">
+        ${seriesCards}
+      </section>
+    </main>
   `;
-  return `
-    <button class="chapter-card glass ${state.chapter?.id === chapter.id ? 'selected' : ''}" data-chapter-id="${chapter.id}">
-      <img src="./${chapter.thumb}" alt="${escapeHtml(chapter.title)}" loading="lazy" />
-      <div class="chapter-meta">
-        <div class="chapter-topline">
-          <span class="chip">${chapter.group}</span>
-          ${downloaded ? '<span class="chip offline">offline</span>' : ''}
-          ${statusChip}
+
+  app.querySelectorAll('[data-series-id]').forEach((card) => {
+    card.addEventListener('click', () => openSeries(card.dataset.seriesId));
+    card.addEventListener('card-click', () => openSeries(card.dataset.seriesId));
+  });
+}
+
+function renderReader() {
+  const series = getCurrentSeries();
+  const chapter = getCurrentChapter();
+  if (!series || !chapter) {
+    state.view = 'home';
+    renderHome();
+    return;
+  }
+
+  const releases = getReleases(series);
+  const currentRelease = getCurrentRelease();
+  const releaseChapters = currentRelease ? getReleaseChapters(series, currentRelease.id) : [];
+  const pages = chapter.pages || [];
+  const pageCount = pages.length;
+  const indicator = `${Math.min(state.currentPage + 1, Math.max(pageCount, 1))} / ${Math.max(pageCount, 1)}`;
+
+  app.className = `app-reader mode-${state.mode} ${state.drawerOpen ? 'drawer-open' : ''}`;
+  app.innerHTML = `
+    <section class="reader-root">
+      <header class="reader-topbar">
+        <div class="topbar-left">
+          <m3-button variant="text" id="go-home">←</m3-button>
+          <m3-button variant="text" id="toggle-drawer">☰</m3-button>
         </div>
-        <strong>${escapeHtml(chapter.title)}</strong>
-        <span>${chapter.pageCount} стр. · ${formatBytes(chapter.size || 0)}</span>
-        ${progressBar}
+        <div class="topbar-title">
+          <h1>${escapeHtml(series.title)}</h1>
+          <p>${escapeHtml(chapter.shortTitle || chapter.title || 'Глава')}</p>
+        </div>
+        <div class="topbar-right">
+          <m3-button variant="outlined" id="toggle-mode">${state.mode === 'book' ? 'Книга' : 'Лента'}</m3-button>
+        </div>
+      </header>
+
+      <div class="release-strip">
+        <m3-tabs id="release-tabs" variant="secondary">
+          ${releases.map((release) => `<m3-tab label="${escapeAttr(releaseDisplayName(series, release))}" ${release.id === state.currentReleaseId ? 'active' : ''}></m3-tab>`).join('')}
+        </m3-tabs>
       </div>
+
+      <div class="reader-body">
+        <aside class="chapter-drawer ${state.drawerOpen ? 'open' : ''}" id="chapter-drawer">
+          <div class="drawer-head">
+            <strong>${escapeHtml(releaseDisplayName(series, currentRelease))}</strong>
+          </div>
+          <div class="chapter-list" id="chapter-list">
+            ${releaseChapters.map((item) => chapterItemMarkup(item)).join('')}
+          </div>
+        </aside>
+        <button class="drawer-backdrop ${state.drawerOpen ? 'visible' : ''}" id="drawer-backdrop" aria-label="Закрыть меню"></button>
+
+        <main class="reader-stage">
+          ${state.mode === 'book' ? bookStageMarkup(chapter) : scrollStageMarkup(chapter)}
+        </main>
+      </div>
+
+      <footer class="reader-footer">
+        <m3-button variant="text" id="prev-page" ${state.currentPage <= 0 ? 'disabled' : ''}>◀</m3-button>
+        <input id="page-slider" type="range" min="0" max="${Math.max(pageCount - 1, 0)}" value="${Math.min(state.currentPage, Math.max(pageCount - 1, 0))}" />
+        <div class="page-indicator" id="page-indicator">${indicator}</div>
+        <div class="zoom-row">
+          <m3-button variant="text" id="zoom-out">−</m3-button>
+          <span>${Math.round(state.zoom * 100)}%</span>
+          <m3-button variant="text" id="zoom-in">+</m3-button>
+        </div>
+        <m3-button variant="text" id="next-page" ${state.currentPage >= pageCount - 1 ? 'disabled' : ''}>▶</m3-button>
+      </footer>
+    </section>
+  `;
+
+  bindReaderEvents(releases, releaseChapters, chapter);
+  if (state.mode === 'scroll') {
+    setupScrollTracking();
+  } else {
+    disconnectScrollTracking();
+  }
+
+  preloadNearbyPages(chapter);
+}
+
+function chapterItemMarkup(chapter) {
+  const done = Boolean(state.readState.chapterDone[chapter.id]);
+  const progress = getChapterPercent(chapter);
+  let badge = '';
+  if (done) badge = '✓';
+  else if (progress > 0) badge = `${progress}%`;
+
+  return `
+    <button class="chapter-item ${chapter.id === state.currentChapterId ? 'active' : ''} ${done ? 'done' : ''}" data-chapter-id="${escapeAttr(chapter.id)}">
+      <span class="chapter-name">${escapeHtml(chapter.shortTitle || chapter.title || chapter.id)}</span>
+      <span class="chapter-state">${escapeHtml(badge)}</span>
     </button>
   `;
 }
 
-function renderReader() {
-  const section = document.querySelector('#reader-section');
-  if (!section) return;
-  if (!state.chapter) {
-    section.innerHTML = '<div class="empty-state"><h3>Выбери главу слева</h3><p>Откроется режим книги или длинной ленты, всё зависит от устройства и твоего переключателя.</p></div>';
-    return;
-  }
-  const prev = findRelativeChapter(-1);
-  const next = findRelativeChapter(1);
-  const doublePage = state.mode === 'book' && window.innerWidth > 980;
-  const leftPage = doublePage ? state.pages[state.currentSpread * 2] ?? null : null;
-  const rightPage = state.mode === 'book' ? state.pages[doublePage ? state.currentSpread * 2 + 1 : state.currentPage] ?? null : null;
-  const progress = Math.round(((state.currentPage + 1) / Math.max(state.pages.length, 1)) * 100);
-  const chapterDownloaded = Boolean(state.readState.downloads[state.chapter.file]);
-  const chapterProgress = state.chapterDownloadProgress[state.chapter.file] || 0;
-  const chapterPercent = getChapterPercent(state.chapter);
-  section.innerHTML = `
-    <div class="reader-header">
-      <div>
-        <p class="eyebrow">${state.chapter.group}</p>
-        <h3>${escapeHtml(state.chapter.title)}</h3>
-        <span>${state.currentPage + 1} / ${state.pages.length} · ${progress}%</span>
-      </div>
-      <div class="reader-tools">
-        <button id="prev-chapter" ${!prev ? 'disabled' : ''}>← Глава</button>
-        <button id="next-chapter" ${!next ? 'disabled' : ''}>Глава →</button>
-        <button id="toggle-reading-mode">${state.mode === 'book' ? 'Scroll mode' : 'Book mode'}</button>
-        <button id="chapter-download">${state.downloading && state.downloadTarget === state.chapter.file ? `Скачивание ${chapterProgress || state.downloadProgress}%` : (chapterDownloaded ? 'Перекачать' : 'Скачать главу')}</button>
-        <button id="mark-read">${state.readState.chapterDone[state.chapter.id] ? 'Сбросить статус' : 'Прочитано'}</button>
-      </div>
-    </div>
-    <div class="reader-meta-row">
-      <div class="reader-pill">${chapterDownloaded ? 'Оффлайн готово' : 'Чтение из сети / локалки'}</div>
-      <div class="reader-pill">${state.mode === 'book' ? '3D flip режим' : 'вертикальная лента'}</div>
-      <div class="reader-pill">Zoom: ${Math.round(state.zoom * 100)}%</div>
-      <div class="reader-pill">Прогресс: ${chapterPercent}%</div>
-    </div>
-    <div class="reader-stage ${state.mode}" id="reader-stage">
-      <button class="nav-zone left" id="prev-page" aria-label="Назад"></button>
-      <div class="book-scene ${state.mode === 'book' ? 'active' : ''}">
-        <div class="book-frame ${doublePage ? '' : 'single'} ${state.readerReady ? 'ready' : ''} ${state.flipDirection}">
-          <div class="book-depth-shadow"></div>
-          ${leftPage ? pageSheetMarkup(leftPage, 'left-sheet', 'left page') : ''}
-          ${rightPage ? pageSheetMarkup(rightPage, `right-sheet ${doublePage ? '' : 'solo'}`, 'right page') : ''}
-          <div class="page-flip ${state.flipDirection}" id="page-flip"></div>
-          <div class="page-glow"></div>
-          <div class="book-spine"></div>
-          <div class="book-reflection"></div>
+function bookStageMarkup(chapter) {
+  const pages = chapter.pages || [];
+  const spread = getBookSpread(pages, state.currentPage);
+  const flipClass = state._flipClass || '';
+
+  return `
+    <div class="book-stage" id="book-stage">
+      <button class="page-zone left" id="zone-prev" aria-label="Предыдущая страница"></button>
+      <div class="book-scene">
+        <div class="book-spread ${spread.single ? 'single' : ''} ${flipClass}" id="book-spread">
+          ${spread.left ? pageSheetMarkup(spread.left, 'left-sheet') : ''}
+          ${spread.right ? pageSheetMarkup(spread.right, spread.single ? 'right-sheet single' : 'right-sheet') : ''}
+          <div class="flip-overlay"></div>
         </div>
       </div>
-      <div class="scroll-pages ${state.mode === 'scroll' ? 'active' : ''}" id="scroll-pages">
-        ${state.pages.map((page, index) => scrollPageMarkup(page, index)).join('')}
-      </div>
-      <button class="nav-zone right" id="next-page" aria-label="Вперёд"></button>
-    </div>
-    <div class="reader-footer">
-      <input id="page-slider" type="range" min="0" max="${Math.max(state.pages.length - 1, 0)}" value="${state.currentPage}" />
-      <div class="zoom-tools">
-        <button id="zoom-out">−</button>
-        <span>${Math.round(state.zoom * 100)}%</span>
-        <button id="zoom-in">+</button>
-      </div>
-    </div>
-    <div class="reader-mobile-bar mobile-reader-only">
-      <button id="mobile-prev">←</button>
-      <button id="mobile-menu">Главы</button>
-      <button id="mobile-download">${chapterDownloaded ? 'Offline ✓' : 'Скачать'}</button>
-      <button id="mobile-next">→</button>
-    </div>
-    <div class="hint-row">
-      <span>ПК: ←/→, PgUp/PgDn, Space, Home/End, J/K, wheel, трекпад, клики по краям.</span>
-      <span>Телефон: свайпы, тапы по краям, pinch/кнопки zoom, возврат на точную страницу.</span>
+      <button class="page-zone right" id="zone-next" aria-label="Следующая страница"></button>
     </div>
   `;
-  bindReaderEvents();
-  applyZoom();
-  syncScrollPageMarker();
-  if (state.mode === 'scroll') queueScrollMarkerSync();
-  state.readerReady = true;
 }
 
-function pageSheetMarkup(page, className, alt) {
-  return `<div class="page-sheet ${className}"><div class="paper-shadow"></div><div class="page-inner zoom-surface"><img src="${page.src}" alt="${alt}" /></div></div>`;
+function pageSheetMarkup(page, extraClass = '') {
+  return `
+    <article class="page-sheet ${extraClass}">
+      <div class="page-surface">
+        <img src="${escapeAttr(page.url)}" alt="${escapeAttr(page.name || 'page')}" class="manga-image" draggable="false" loading="eager" decoding="async" />
+      </div>
+    </article>
+  `;
 }
 
-function scrollPageMarkup(page, index) {
-  return `<figure class="scroll-page ${index === state.currentPage ? 'current' : ''}" data-page-index="${index}"><div class="scroll-page-num">${index + 1}</div><div class="zoom-surface"><img src="${page.src}" alt="page ${index + 1}" loading="lazy" /></div></figure>`;
+function scrollStageMarkup(chapter) {
+  const pages = chapter.pages || [];
+  return `
+    <div class="scroll-stage" id="scroll-stage">
+      ${pages.map((page, index) => `
+        <figure class="scroll-page ${index === state.currentPage ? 'current' : ''}" data-page-index="${index}">
+          <div class="scroll-page-num">${index + 1}</div>
+          <div class="scroll-surface">
+            <img src="${escapeAttr(page.url)}" alt="${escapeAttr(page.name || `page-${index + 1}`)}" class="manga-image" loading="lazy" decoding="async" draggable="false" />
+          </div>
+        </figure>
+      `).join('')}
+    </div>
+  `;
 }
 
-async function openChapter(chapterId) {
-  const chapter = state.chapters.find((item) => item.id === chapterId);
-  if (!chapter) return;
-  cleanupPageUrls();
-  state.chapter = chapter;
-  state.readerReady = false;
-  try {
-    const cached = await getFromCache(chapter.file);
-    const bytes = cached || await fetchZip(chapter.file);
-    const zip = unzipSync(new Uint8Array(bytes));
-    state.pages = Object.entries(zip)
-      .filter(([name]) => /\.(png|jpe?g|webp|gif)$/i.test(name))
-      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-      .map(([name, data]) => {
-        const view = data instanceof Uint8Array ? data : new Uint8Array(data);
-        const blob = new Blob([view], { type: inferMime(name) });
-        return { name, src: URL.createObjectURL(blob) };
-      });
-    const saved = state.readState.chapterProgress[chapter.id];
-    state.currentPage = Math.min(saved?.page ?? 0, Math.max(state.pages.length - 1, 0));
-    state.currentSpread = Math.floor(state.currentPage / 2);
-    state.mobileLibraryOpen = false;
-    renderShell();
-    renderReader();
-    persistCurrentProgress(false);
-  } catch (error) {
-    console.error(error);
-    showToast(`Не удалось открыть ${chapter.title}`);
-  }
-}
-
-function cleanupPageUrls() {
-  disconnectObserver();
-  for (const page of state.pages) URL.revokeObjectURL(page.src);
-  state.pages = [];
-}
-
-function inferMime(name) {
-  if (/\.png$/i.test(name)) return 'image/png';
-  if (/\.webp$/i.test(name)) return 'image/webp';
-  if (/\.gif$/i.test(name)) return 'image/gif';
-  return 'image/jpeg';
-}
-
-async function fetchZip(file) {
-  const response = await fetch(`${MANGA_BASE}${file}`);
-  if (!response.ok) throw new Error(`Failed to fetch ${file}`);
-  return response.arrayBuffer();
-}
-
-function bindGlobalEvents() {
-  window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('resize', onResize);
-  window.addEventListener('wheel', onWheel, { passive: false });
-  window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault();
-    state.installPrompt = event;
-    renderShell();
-    if (state.chapter) renderReader();
+function bindReaderEvents(releases, releaseChapters, chapter) {
+  document.querySelector('#go-home')?.addEventListener('click', () => {
+    disconnectScrollTracking();
+    state.view = 'home';
+    state.drawerOpen = false;
+    render();
   });
-  window.addEventListener('pagehide', () => persistCurrentProgress(false));
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') persistCurrentProgress(false);
-  });
-  let touchStartX = 0;
-  let touchStartY = 0;
-  document.addEventListener('touchstart', (event) => {
-    if (event.touches.length === 2) {
-      state.touchZoom = pinchDistance(event.touches);
-      state.touchGestureActive = true;
-      return;
-    }
-    state.touchGestureActive = false;
-    const touch = event.changedTouches[0];
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
-  }, { passive: true });
-  document.addEventListener('touchmove', (event) => {
-    if (event.touches.length === 2 && state.chapter) {
-      const next = pinchDistance(event.touches);
-      if (state.touchZoom) {
-        const diff = (next - state.touchZoom) / 280;
-        if (Math.abs(diff) > 0.02) {
-          changeZoom(diff);
-          state.touchZoom = next;
-          state.touchGestureActive = true;
-        }
-      }
-    }
-  }, { passive: true });
-  document.addEventListener('touchend', (event) => {
-    state.lastTouchEndAt = performance.now();
-    if (event.touches.length < 2) state.touchZoom = null;
-    if (!state.chapter || event.changedTouches.length !== 1 || state.touchGestureActive) {
-      state.touchGestureActive = false;
-      return;
-    }
-    const touch = event.changedTouches[0];
-    const dx = touch.clientX - touchStartX;
-    const dy = touch.clientY - touchStartY;
-    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) dx < 0 ? nextPage() : previousPage();
-  }, { passive: true });
-  document.addEventListener('dblclick', (event) => event.preventDefault());
-  document.addEventListener('gesturestart', (event) => event.preventDefault());
-  document.addEventListener('gesturechange', (event) => event.preventDefault());
-}
 
-function onResize() {
-  if (window.innerWidth >= 980) state.mobileLibraryOpen = false;
-  if (state.chapter) renderReader();
-}
-
-function onKeyDown(event) {
-  const tag = event.target?.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || !state.chapter) return;
-  const key = event.key.toLowerCase();
-  if (['arrowright', 'pagedown', ' '].includes(key)) {
-    event.preventDefault();
-    nextPage();
-  }
-  if (['arrowleft', 'pageup', 'backspace'].includes(key)) {
-    event.preventDefault();
-    previousPage();
-  }
-  if (key === 'home') {
-    event.preventDefault();
-    jumpToPage(0, 'backward');
-  }
-  if (key === 'end') {
-    event.preventDefault();
-    jumpToPage(state.pages.length - 1, 'forward');
-  }
-  if (key === 'j') {
-    event.preventDefault();
-    nextPage();
-  }
-  if (key === 'k') {
-    event.preventDefault();
-    previousPage();
-  }
-  if (key === 'b') {
-    event.preventDefault();
-    toggleMode();
-  }
-  if (key === '+' || key === '=') {
-    event.preventDefault();
-    changeZoom(0.1);
-  }
-  if (key === '-') {
-    event.preventDefault();
-    changeZoom(-0.1);
-  }
-  if (key === 'o') {
-    event.preventDefault();
-    if (state.chapter) downloadChapter(state.chapter);
-  }
-}
-
-function onWheel(event) {
-  if (!state.chapter) return;
-  const reader = document.querySelector('#reader-stage');
-  if (!reader || !reader.contains(event.target)) return;
-  if (event.ctrlKey || event.metaKey) {
-    event.preventDefault();
-    changeZoom((-event.deltaY || event.deltaX) / 900);
-    return;
-  }
-  if (state.mode === 'scroll') return;
-  const dominant = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-  if (Math.abs(dominant) < 24) return;
-  event.preventDefault();
-  state.horizontalWheelAccumulator += dominant;
-  if (Math.abs(state.horizontalWheelAccumulator) < 60) return;
-  const direction = state.horizontalWheelAccumulator > 0 ? 'forward' : 'backward';
-  state.horizontalWheelAccumulator = 0;
-  direction === 'forward' ? nextPage() : previousPage();
-}
-
-function attachShellEvents() {
-  document.querySelector('#search')?.addEventListener('input', (event) => {
-    state.search = event.target.value;
-    renderChapterList();
-  });
-  document.querySelectorAll('[data-filter]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.filter = button.dataset.filter;
-      renderShell();
-      if (state.chapter) renderReader();
-    });
-  });
-  document.querySelector('#chapter-list')?.addEventListener('click', (event) => {
-    const card = event.target.closest('[data-chapter-id]');
-    if (card) openChapter(card.dataset.chapterId);
-  });
-  document.querySelector('#resume-reading')?.addEventListener('click', restoreLastChapter);
-  document.querySelector('#toggle-layout')?.addEventListener('click', toggleMode);
-  document.querySelector('#download-all')?.addEventListener('click', downloadAllChapters);
-  document.querySelector('#install-app')?.addEventListener('click', installApp);
-  document.querySelector('#library-download-current')?.addEventListener('click', () => {
-    if (state.chapter) downloadChapter(state.chapter);
-  });
-  document.querySelector('#library-open-current')?.addEventListener('click', () => {
-    if (!state.chapter) {
-      restoreLastChapter();
-      return;
-    }
-    state.mobileLibraryOpen = false;
-    renderShell();
+  document.querySelector('#toggle-drawer')?.addEventListener('click', () => {
+    state.drawerOpen = !state.drawerOpen;
     renderReader();
   });
-  document.querySelector('#toggle-library')?.addEventListener('click', () => {
-    state.mobileLibraryOpen = !state.mobileLibraryOpen;
-    renderShell();
-    if (state.chapter) renderReader();
-  });
-}
 
-function bindReaderEvents() {
+  document.querySelector('#drawer-backdrop')?.addEventListener('click', () => {
+    state.drawerOpen = false;
+    renderReader();
+  });
+
+  document.querySelector('#toggle-mode')?.addEventListener('click', () => {
+    state.mode = state.mode === 'book' ? 'scroll' : 'book';
+    state.readState.mode = state.mode;
+    saveReadState();
+    renderReader();
+  });
+
   document.querySelector('#prev-page')?.addEventListener('click', previousPage);
   document.querySelector('#next-page')?.addEventListener('click', nextPage);
-  document.querySelector('#toggle-reading-mode')?.addEventListener('click', toggleMode);
-  document.querySelector('#page-slider')?.addEventListener('input', (event) => jumpToPage(Number(event.target.value)));
-  document.querySelector('#prev-chapter')?.addEventListener('click', () => {
-    const prev = findRelativeChapter(-1);
-    if (prev) openChapter(prev.id);
+  document.querySelector('#zone-prev')?.addEventListener('click', previousPage);
+  document.querySelector('#zone-next')?.addEventListener('click', nextPage);
+
+  document.querySelector('#page-slider')?.addEventListener('input', (event) => {
+    const next = Number(event.target.value);
+    if (!Number.isFinite(next)) return;
+    if (state.mode === 'scroll') {
+      scrollToPage(next);
+      return;
+    }
+    jumpToPage(next, next >= state.currentPage ? 'forward' : 'backward');
   });
-  document.querySelector('#next-chapter')?.addEventListener('click', () => {
-    const next = findRelativeChapter(1);
-    if (next) openChapter(next.id);
+
+  document.querySelector('#zoom-in')?.addEventListener('click', () => changeZoom(0.1));
+  document.querySelector('#zoom-out')?.addEventListener('click', () => changeZoom(-0.1));
+
+  document.querySelectorAll('.chapter-item').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.drawerOpen = false;
+      openChapter(button.dataset.chapterId, { preferSavedPage: true });
+    });
   });
-  document.querySelector('#zoom-in')?.addEventListener('click', () => changeZoom(0.12));
-  document.querySelector('#zoom-out')?.addEventListener('click', () => changeZoom(-0.12));
-  document.querySelector('#mark-read')?.addEventListener('click', toggleReadState);
-  document.querySelector('#chapter-download')?.addEventListener('click', () => downloadChapter(state.chapter));
-  document.querySelector('#mobile-download')?.addEventListener('click', () => downloadChapter(state.chapter));
-  document.querySelector('#mobile-menu')?.addEventListener('click', () => {
-    state.mobileLibraryOpen = !state.mobileLibraryOpen;
-    renderShell();
-    renderReader();
+
+  const tabs = document.querySelector('#release-tabs');
+  tabs?.addEventListener('tab-change', (event) => {
+    const index = Number(event.detail?.index);
+    const release = releases[index];
+    if (!release || release.id === state.currentReleaseId) return;
+    state.currentReleaseId = release.id;
+    const nextChapter = pickChapterForRelease(release, releaseChapters);
+    if (nextChapter) {
+      openChapter(nextChapter.id, { preferSavedPage: true });
+    } else {
+      renderReader();
+    }
   });
-  document.querySelector('#mobile-prev')?.addEventListener('click', previousPage);
-  document.querySelector('#mobile-next')?.addEventListener('click', nextPage);
-  const stage = document.querySelector('#reader-stage');
-  stage?.addEventListener('pointerdown', onPointerDown, { passive: true });
-  stage?.addEventListener('pointerup', onPointerUp, { passive: true });
-  const scrollPages = document.querySelector('#scroll-pages');
-  scrollPages?.addEventListener('scroll', queueScrollMarkerSync, { passive: true });
-  setupScrollObserver();
+
+  const bookStage = document.querySelector('#book-stage');
+  if (bookStage) {
+    bookStage.addEventListener('pointerdown', onPointerDown, { passive: true });
+    bookStage.addEventListener('pointerup', onPointerUp, { passive: true });
+  }
+
+  if (state.mode === 'scroll') {
+    requestAnimationFrame(() => {
+      const active = document.querySelector(`.scroll-page[data-page-index="${state.currentPage}"]`);
+      active?.scrollIntoView({ block: 'center', behavior: 'auto' });
+    });
+  }
+
+  refreshFooterIndicators(chapter);
 }
 
-function onPointerDown(event) {
-  state.pointerDownX = event.clientX;
-  state.pointerDownY = event.clientY;
-  state.pointerDownAt = performance.now();
+function pickChapterForRelease(release, previousReleaseChapters = []) {
+  const series = getCurrentSeries();
+  if (!series || !release) return null;
+
+  const chapters = getReleaseChapters(series, release.id);
+  const last = state.readState.seriesLast[series.id];
+
+  if (last?.chapterId) {
+    const saved = chapters.find((chapter) => chapter.id === last.chapterId);
+    if (saved) return saved;
+  }
+
+  const stillCurrent = chapters.find((entry) => entry.id === state.currentChapterId);
+  if (stillCurrent) return stillCurrent;
+
+  return chapters[0] || previousReleaseChapters[0] || null;
 }
 
-function onPointerUp(event) {
-  if (!state.chapter) return;
-  if (performance.now() - state.lastTouchEndAt < 420) return;
-  const dx = event.clientX - state.pointerDownX;
-  const dy = event.clientY - state.pointerDownY;
-  const hold = performance.now() - state.pointerDownAt;
-  if (event.target.closest('.zoom-surface') && Math.abs(dx) < 8 && Math.abs(dy) < 8 && hold > 140) return;
-  if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy)) {
-    dx < 0 ? nextPage() : previousPage();
+function openSeries(seriesId) {
+  const series = getSeriesList().find((item) => item.id === seriesId);
+  if (!series) return;
+
+  state.currentSeriesId = series.id;
+  state.view = 'reader';
+  state.drawerOpen = false;
+
+  const releases = getReleases(series);
+  const last = state.readState.seriesLast[series.id];
+
+  let releaseId = last?.releaseId;
+  if (!releases.find((item) => item.id === releaseId)) {
+    const byChapter = releases.find((item) => item.chapterIds?.includes(last?.chapterId));
+    releaseId = byChapter?.id || releases[0]?.id || null;
+  }
+
+  state.currentReleaseId = releaseId;
+
+  let chapterId = last?.chapterId;
+  const releaseChapters = getReleaseChapters(series, state.currentReleaseId);
+  if (!releaseChapters.find((item) => item.id === chapterId)) {
+    chapterId = releaseChapters[0]?.id || firstSeriesChapter(series)?.id || null;
+  }
+
+  if (!chapterId) {
+    state.view = 'home';
+    render();
     return;
   }
-  const bounds = event.currentTarget.getBoundingClientRect();
-  const x = event.clientX - bounds.left;
-  if (x < bounds.width * 0.28) previousPage();
-  else if (x > bounds.width * 0.72) nextPage();
+
+  openChapter(chapterId, { preferSavedPage: true });
 }
 
-function getStep() {
-  return state.mode === 'book' ? (window.innerWidth > 980 ? 2 : 1) : 1;
-}
+function openChapter(chapterId, { preferSavedPage = true } = {}) {
+  const chapter = state.chapterMap.get(chapterId);
+  if (!chapter) return;
 
-function nextPage() {
-  if (!state.chapter || pageTurnLocked()) return;
-  jumpToPage(Math.min(state.pages.length - 1, state.currentPage + getStep()), 'forward');
+  state.currentChapterId = chapter.id;
+  state.currentReleaseId = chapter.releaseId || state.currentReleaseId;
+
+  const pageCount = chapter.pages?.length || 0;
+  const saved = state.readState.chapterProgress[chapter.id];
+  state.currentPage = preferSavedPage ? clamp(saved?.page ?? 0, 0, Math.max(pageCount - 1, 0)) : 0;
+
+  persistProgress();
+  renderReader();
 }
 
 function previousPage() {
-  if (!state.chapter || pageTurnLocked()) return;
-  jumpToPage(Math.max(0, state.currentPage - getStep()), 'backward');
-}
+  const chapter = getCurrentChapter();
+  if (!chapter) return;
 
-function jumpToPage(page, direction = 'forward') {
-  const bounded = Math.max(0, Math.min(page, Math.max(state.pages.length - 1, 0)));
-  state.currentPage = bounded;
-  state.currentSpread = Math.floor(bounded / 2);
-  state.flipDirection = direction;
-  persistCurrentProgress(false);
-  renderReader();
-  animateFlip(direction);
   if (state.mode === 'scroll') {
-    document.querySelector(`.scroll-page[data-page-index="${bounded}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollToPage(Math.max(0, state.currentPage - 1));
+    return;
   }
-  syncReaderHeader();
+
+  jumpToPage(state.currentPage - pageStep(chapter), 'backward');
 }
 
-function animateFlip(direction) {
-  const flip = document.querySelector('#page-flip');
-  const frame = document.querySelector('.book-frame');
-  if (!flip || state.mode !== 'book') return;
-  flip.className = `page-flip ${direction}`;
-  frame?.classList.remove('forward-burst', 'backward-burst');
-  state.pageTurnLockedUntil = performance.now() + 620;
-  requestAnimationFrame(() => {
-    flip.classList.add('animate');
-    frame?.classList.add(direction === 'forward' ? 'forward-burst' : 'backward-burst');
+function nextPage() {
+  const chapter = getCurrentChapter();
+  if (!chapter) return;
+
+  if (state.mode === 'scroll') {
+    scrollToPage(Math.min((chapter.pages?.length || 1) - 1, state.currentPage + 1));
+    return;
+  }
+
+  jumpToPage(state.currentPage + pageStep(chapter), 'forward');
+}
+
+function pageStep(chapter) {
+  const wide = window.innerWidth >= 1100;
+  const pageCount = chapter.pages?.length || 0;
+  if (state.mode !== 'book' || !wide || pageCount <= 1) return 1;
+  return 2;
+}
+
+function jumpToPage(next, direction = 'forward') {
+  const chapter = getCurrentChapter();
+  if (!chapter) return;
+
+  const pageCount = chapter.pages?.length || 0;
+  const bounded = clamp(next, 0, Math.max(pageCount - 1, 0));
+  if (bounded === state.currentPage) return;
+
+  state.currentPage = bounded;
+  state._flipClass = direction === 'backward' ? 'flip-backward' : 'flip-forward';
+  persistProgress();
+  renderReader();
+
+  window.clearTimeout(jumpToPage.flipTimer);
+  jumpToPage.flipTimer = window.setTimeout(() => {
+    state._flipClass = '';
+  }, 420);
+}
+jumpToPage.flipTimer = 0;
+
+function scrollToPage(index) {
+  const bounded = clamp(index, 0, Math.max((getCurrentChapter()?.pages?.length || 1) - 1, 0));
+  const node = document.querySelector(`.scroll-page[data-page-index="${bounded}"]`);
+  if (!node) return;
+  node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function onPointerDown(event) {
+  state.pointer.x = event.clientX;
+  state.pointer.y = event.clientY;
+  state.pointer.at = performance.now();
+}
+
+function onPointerUp(event) {
+  const dx = event.clientX - state.pointer.x;
+  const dy = event.clientY - state.pointer.y;
+  if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy)) {
+    if (dx < 0) nextPage();
+    else previousPage();
+    return;
+  }
+
+  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - bounds.left;
+    if (x < bounds.width * 0.28) previousPage();
+    else if (x > bounds.width * 0.72) nextPage();
+  }
+}
+
+function setupScrollTracking() {
+  disconnectScrollTracking();
+
+  const container = document.querySelector('#scroll-stage');
+  if (!container) return;
+
+  const entries = [...container.querySelectorAll('.scroll-page')];
+  if (!entries.length) return;
+
+  state.scrollObserver = new IntersectionObserver((observed) => {
+    let best = null;
+    for (const entry of observed) {
+      if (!entry.isIntersecting) continue;
+      if (!best || entry.intersectionRatio > best.intersectionRatio) best = entry;
+    }
+    if (!best) return;
+
+    const index = Number(best.target.dataset.pageIndex);
+    if (!Number.isFinite(index) || index === state.currentPage) return;
+
+    state.currentPage = index;
+    persistProgress(false);
+    refreshFooterIndicators(getCurrentChapter());
+    entries.forEach((node, nodeIndex) => node.classList.toggle('current', nodeIndex === index));
+  }, {
+    root: container,
+    threshold: [0.35, 0.55, 0.8],
   });
+
+  entries.forEach((entry) => state.scrollObserver.observe(entry));
 }
 
-function pageTurnLocked() {
-  return state.mode === 'book' && performance.now() < state.pageTurnLockedUntil;
+function disconnectScrollTracking() {
+  if (state.scrollObserver) {
+    state.scrollObserver.disconnect();
+    state.scrollObserver = null;
+  }
+  if (state.scrollRaf) {
+    cancelAnimationFrame(state.scrollRaf);
+    state.scrollRaf = null;
+  }
 }
 
-function toggleMode() {
-  state.mode = state.mode === 'book' ? 'scroll' : 'book';
-  state.readState.mode = state.mode;
-  saveState();
-  renderShell();
-  if (state.chapter) renderReader();
+function preloadNearbyPages(chapter) {
+  if (!chapter?.pages?.length) return;
+  for (const offset of [1, 2]) {
+    const next = chapter.pages[state.currentPage + offset];
+    const prev = chapter.pages[state.currentPage - offset];
+    if (next?.url) {
+      const img = new Image();
+      img.src = next.url;
+    }
+    if (prev?.url) {
+      const img = new Image();
+      img.src = prev.url;
+    }
+  }
+}
+
+function bindGlobalEvents() {
+  window.addEventListener('resize', () => {
+    if (state.view === 'reader' && state.mode === 'book') renderReader();
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if (state.view !== 'reader') return;
+    const tag = event.target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+    const key = event.key.toLowerCase();
+    if (['arrowright', 'pagedown', ' '].includes(key)) {
+      event.preventDefault();
+      nextPage();
+      return;
+    }
+    if (['arrowleft', 'pageup', 'backspace'].includes(key)) {
+      event.preventDefault();
+      previousPage();
+      return;
+    }
+    if (key === 'home') {
+      event.preventDefault();
+      jumpToPage(0, 'backward');
+      return;
+    }
+    if (key === 'end') {
+      event.preventDefault();
+      jumpToPage((getCurrentChapter()?.pages?.length || 1) - 1, 'forward');
+      return;
+    }
+    if (key === 'escape' && state.drawerOpen) {
+      state.drawerOpen = false;
+      renderReader();
+      return;
+    }
+    if (key === 'm') {
+      state.mode = state.mode === 'book' ? 'scroll' : 'book';
+      state.readState.mode = state.mode;
+      saveReadState();
+      renderReader();
+      return;
+    }
+    if (key === '+' || key === '=') {
+      event.preventDefault();
+      changeZoom(0.1);
+      return;
+    }
+    if (key === '-') {
+      event.preventDefault();
+      changeZoom(-0.1);
+    }
+  });
+
+  window.addEventListener('wheel', (event) => {
+    if (state.view !== 'reader') return;
+
+    const stage = document.querySelector('.reader-stage');
+    if (!stage || !stage.contains(event.target)) return;
+
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      changeZoom((-event.deltaY || event.deltaX) / 900);
+      return;
+    }
+
+    if (state.mode !== 'book') return;
+
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (Math.abs(delta) < 26) return;
+    event.preventDefault();
+
+    state.wheelAccumulator += delta;
+    if (Math.abs(state.wheelAccumulator) < 64) return;
+
+    if (state.wheelAccumulator > 0) nextPage();
+    else previousPage();
+
+    state.wheelAccumulator = 0;
+  }, { passive: false });
+
+  window.addEventListener('pagehide', () => persistProgress(false));
+}
+
+function refreshFooterIndicators(chapter) {
+  if (!chapter) return;
+  const pageCount = chapter.pages?.length || 0;
+  const slider = document.querySelector('#page-slider');
+  const indicator = document.querySelector('#page-indicator');
+  const prev = document.querySelector('#prev-page');
+  const next = document.querySelector('#next-page');
+
+  if (slider) {
+    slider.max = String(Math.max(pageCount - 1, 0));
+    slider.value = String(clamp(state.currentPage, 0, Math.max(pageCount - 1, 0)));
+  }
+  if (indicator) indicator.textContent = `${Math.min(state.currentPage + 1, Math.max(pageCount, 1))} / ${Math.max(pageCount, 1)}`;
+  if (prev) prev.disabled = state.currentPage <= 0;
+  if (next) next.disabled = state.currentPage >= pageCount - 1;
 }
 
 function changeZoom(diff) {
-  state.zoom = Math.min(3, Math.max(0.65, state.zoom + diff));
+  state.zoom = clamp(state.zoom + diff, 0.7, 2.4);
   state.readState.zoom = state.zoom;
-  saveState();
-  applyZoom();
-  const zoomLabel = document.querySelector('.zoom-tools span');
-  if (zoomLabel) zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`;
-  const zoomPill = document.querySelectorAll('.reader-pill')[2];
-  if (zoomPill) zoomPill.textContent = `Zoom: ${Math.round(state.zoom * 100)}%`;
+  saveReadState();
+  applyZoomVar();
+  const label = document.querySelector('.zoom-row span');
+  if (label) label.textContent = `${Math.round(state.zoom * 100)}%`;
 }
 
-function applyZoom() {
-  document.querySelectorAll('.zoom-surface img').forEach((img) => {
-    img.style.transform = `scale(${state.zoom})`;
-  });
+function applyZoomVar() {
+  document.documentElement.style.setProperty('--reader-zoom', state.zoom.toFixed(3));
 }
 
-function syncReaderHeader() {
-  if (!state.chapter) return;
-  const progress = Math.round(((state.currentPage + 1) / Math.max(state.pages.length, 1)) * 100);
-  const chapterProgress = getChapterPercent(state.chapter);
-  document.querySelectorAll('.reader-header span, .now-reading span').forEach((el, index) => {
-    if (index === 0) el.textContent = `${state.currentPage + 1} / ${state.pages.length} · ${progress}%`;
-    if (index === 1) el.textContent = `${chapterProgress}% · страница ${state.currentPage + 1} / ${state.pages.length || 0}`;
-  });
-  const slider = document.querySelector('#page-slider');
-  if (slider) slider.value = String(state.currentPage);
-  const pill = document.querySelectorAll('.reader-pill')[3];
-  if (pill) pill.textContent = `Прогресс: ${chapterProgress}%`;
-}
+function persistProgress(save = true) {
+  const chapter = getCurrentChapter();
+  const series = getCurrentSeries();
+  if (!chapter || !series) return;
 
-function toggleReadState() {
-  if (!state.chapter) return;
-  if (state.readState.chapterDone[state.chapter.id]) delete state.readState.chapterDone[state.chapter.id];
-  else state.readState.chapterDone[state.chapter.id] = true;
-  saveState();
-  renderShell();
-  renderReader();
-}
+  const pageCount = chapter.pages?.length || 0;
+  state.currentPage = clamp(state.currentPage, 0, Math.max(pageCount - 1, 0));
 
-function persistCurrentProgress(reRender = true) {
-  if (!state.chapter) return;
-  state.readState.lastChapterId = state.chapter.id;
-  state.readState.chapterProgress[state.chapter.id] = { page: state.currentPage, pageCount: state.pages.length };
-  if (state.currentPage >= state.pages.length - 1 && state.pages.length > 0) state.readState.chapterDone[state.chapter.id] = true;
-  saveState();
-  if (reRender) renderChapterList();
+  state.readState.lastSeriesId = series.id;
+  state.readState.chapterProgress[chapter.id] = {
+    page: state.currentPage,
+    pageCount,
+  };
+  state.readState.seriesLast[series.id] = {
+    chapterId: chapter.id,
+    releaseId: chapter.releaseId,
+    page: state.currentPage,
+  };
+
+  if (pageCount > 0 && state.currentPage >= pageCount - 1) {
+    state.readState.chapterDone[chapter.id] = true;
+  }
+
+  if (save) saveReadState();
 }
 
 function getChapterPercent(chapter) {
   const progress = state.readState.chapterProgress[chapter.id];
-  return progress?.pageCount ? Math.min(100, Math.round(((progress.page + 1) / progress.pageCount) * 100)) : 0;
+  if (!progress?.pageCount) return 0;
+  return Math.min(100, Math.round(((progress.page + 1) / progress.pageCount) * 100));
 }
 
-function countRead() {
-  return Object.keys(state.readState.chapterDone).length;
-}
-
-function findRelativeChapter(offset) {
-  if (!state.chapter) return null;
-  const index = state.chapters.findIndex((item) => item.id === state.chapter.id);
-  return state.chapters[index + offset] || null;
-}
-
-function restoreLastChapter() {
-  const id = state.readState.lastChapterId || state.chapters[0]?.id;
-  if (id) openChapter(id);
-}
-
-async function registerServiceWorker() {
-  if ('serviceWorker' in navigator) await navigator.serviceWorker.register('./sw.js');
-}
-
-async function downloadAllChapters() {
-  if (state.downloading) return;
-  state.downloading = true;
-  try {
-    for (let i = 0; i < state.chapters.length; i += 1) {
-      const chapter = state.chapters[i];
-      state.downloadTarget = chapter.file;
-      state.downloadProgress = Math.round(((i + 1) / state.chapters.length) * 100);
-      updateDownloadButtons();
-      await downloadChapter(chapter, false, true);
-    }
-    showToast('Все главы скачаны в оффлайн-кэш');
-  } catch (error) {
-    console.error(error);
-    showToast('Часть глав не скачалась, смотри console');
-  } finally {
-    state.downloading = false;
-    state.downloadTarget = null;
-    state.downloadProgress = 0;
-    updateDownloadButtons();
-    renderShell();
-    if (state.chapter) renderReader();
-  }
-}
-
-async function downloadChapter(chapter, rerender = true, bulkMode = false) {
-  if (!chapter) return;
-  if (!bulkMode) {
-    state.downloading = true;
-    state.downloadTarget = chapter.file;
-  }
-  state.activeDownloads += 1;
-  state.chapterDownloadProgress[chapter.file] = state.chapterDownloadProgress[chapter.file] || 0;
-  updateDownloadButtons();
-  try {
-    const existing = await getFromCache(chapter.file);
-    if (!existing) {
-      const response = await fetch(`${MANGA_BASE}${chapter.file}`);
-      if (!response.ok) throw new Error(`Failed to download ${chapter.file}`);
-      const total = Number(response.headers.get('content-length')) || 0;
-      const reader = response.body?.getReader();
-      if (reader) {
-        let received = 0;
-        const chunks = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          received += value.byteLength;
-          state.chapterDownloadProgress[chapter.file] = total ? Math.round((received / total) * 100) : 100;
-          if (!bulkMode) state.downloadProgress = state.chapterDownloadProgress[chapter.file];
-          updateDownloadButtons();
-          renderChapterList();
-        }
-        await putInCache(chapter.file, concatChunks(chunks, received));
-      } else {
-        const buffer = await response.arrayBuffer();
-        state.chapterDownloadProgress[chapter.file] = 100;
-        await putInCache(chapter.file, buffer);
-      }
-    } else {
-      state.chapterDownloadProgress[chapter.file] = 100;
-    }
-    state.readState.downloads[chapter.file] = true;
-    saveState();
-    await refreshOfflineCount();
-    if (!bulkMode) showToast(`Глава ${chapter.title} скачана`);
-  } finally {
-    state.activeDownloads = Math.max(0, state.activeDownloads - 1);
-    state.chapterDownloadProgress[chapter.file] = 100;
-    if (!bulkMode) {
-      state.downloading = false;
-      state.downloadTarget = null;
-      state.downloadProgress = 0;
-    }
-    updateDownloadButtons();
-    renderChapterList();
-    if (rerender && state.chapter?.id === chapter.id) renderReader();
-  }
-}
-
-function concatChunks(chunks, total) {
-  const merged = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return merged.buffer;
-}
-
-async function getFromCache(file) {
-  const cache = await caches.open(DOWNLOAD_CACHE);
-  const match = await cache.match(`./manga/${file}`) || await cache.match(`${location.origin}/raki_suta/${file}`);
-  return match ? match.arrayBuffer() : null;
-}
-
-async function putInCache(file, arrayBuffer) {
-  const cache = await caches.open(DOWNLOAD_CACHE);
-  await cache.put(`${location.origin}/raki_suta/${file}`, new Response(arrayBuffer));
-  await cache.put(`./manga/${file}`, new Response(arrayBuffer));
-}
-
-async function refreshOfflineCount() {
-  const cache = await caches.open(DOWNLOAD_CACHE);
-  const keys = await cache.keys();
-  const set = new Set(keys.map((key) => key.url.split('/').pop()).filter(Boolean));
-  state.offlineCount = set.size;
-  updateOfflineIndicator();
-}
-
-function updateOfflineIndicator() {
-  const el = document.querySelector('#offline-size');
-  if (el) el.textContent = offlineLabel();
-}
-
-function updateDownloadButtons() {
-  const main = document.querySelector('#download-all');
-  if (main) main.textContent = state.downloading ? `Скачать всё (${state.downloadProgress}%)` : 'Скачать всё';
-  const chapterBtn = document.querySelector('#chapter-download');
-  if (chapterBtn && state.chapter) {
-    const progress = state.chapterDownloadProgress[state.chapter.file] || state.downloadProgress;
-    const downloaded = Boolean(state.readState.downloads[state.chapter.file]);
-    chapterBtn.textContent = state.downloading && state.downloadTarget === state.chapter.file ? `Скачивание ${progress}%` : (downloaded ? 'Перекачать' : 'Скачать главу');
-  }
-  const mobileBtn = document.querySelector('#mobile-download');
-  if (mobileBtn && state.chapter) {
-    mobileBtn.textContent = state.downloading && state.downloadTarget === state.chapter.file
-      ? `Загрузка ${state.chapterDownloadProgress[state.chapter.file] || state.downloadProgress}%`
-      : (state.readState.downloads[state.chapter.file] ? 'Offline ✓' : 'Скачать');
-  }
-}
-
-function offlineLabel() {
-  return `${state.offlineCount}/${state.chapters.length}`;
-}
-
-function queueScrollMarkerSync() {
-  if (state.scrollSyncFrame) cancelAnimationFrame(state.scrollSyncFrame);
-  state.scrollSyncFrame = requestAnimationFrame(() => {
-    state.scrollSyncFrame = null;
-    syncCurrentPageFromScroll();
+function getSeriesReadStats(series) {
+  const chapterIds = collectSeriesChapterIds(series);
+  let read = 0;
+  chapterIds.forEach((id) => {
+    if (state.readState.chapterDone[id]) read += 1;
   });
+  return { read, total: chapterIds.length };
 }
 
-function syncCurrentPageFromScroll() {
-  if (state.mode !== 'scroll') return;
-  const container = document.querySelector('#scroll-pages');
-  if (!container) return;
-  const pages = [...container.querySelectorAll('.scroll-page')];
-  const containerCenter = container.getBoundingClientRect().top + container.clientHeight / 2;
-  let best = state.currentPage;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  pages.forEach((page) => {
-    const rect = page.getBoundingClientRect();
-    const center = rect.top + rect.height / 2;
-    const distance = Math.abs(center - containerCenter);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = Number(page.dataset.pageIndex);
+function collectSeriesChapterIds(series) {
+  const ids = [];
+  for (const release of getReleases(series)) {
+    for (const chapterId of release.chapterIds || []) {
+      if (state.chapterMap.has(chapterId)) ids.push(chapterId);
     }
-  });
-  if (best !== state.currentPage) {
-    state.currentPage = best;
-    persistCurrentProgress();
-    syncScrollPageMarker();
   }
+  return ids;
 }
 
-function syncScrollPageMarker() {
-  document.querySelectorAll('.scroll-page').forEach((page, index) => page.classList.toggle('current', index === state.currentPage));
+function getSeriesList() {
+  return state.library?.series || [];
 }
 
-function setupScrollObserver() {
-  disconnectObserver();
-  if (state.mode !== 'scroll') return;
-  const container = document.querySelector('#scroll-pages');
-  if (!container) return;
-  state.observer = new IntersectionObserver((entries) => {
-    let bestEntry = null;
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      if (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio) bestEntry = entry;
-    }
-    if (bestEntry) {
-      const index = Number(bestEntry.target.dataset.pageIndex);
-      if (Number.isFinite(index) && index !== state.currentPage) {
-        state.currentPage = index;
-        persistCurrentProgress();
-        syncScrollPageMarker();
-      }
-    }
-  }, { root: container, threshold: [0.25, 0.5, 0.75] });
-  container.querySelectorAll('.scroll-page').forEach((page) => state.observer.observe(page));
+function getCurrentSeries() {
+  return getSeriesList().find((entry) => entry.id === state.currentSeriesId) || null;
 }
 
-function disconnectObserver() {
-  if (state.observer) {
-    state.observer.disconnect();
-    state.observer = null;
+function getReleases(series) {
+  return series?.releases || [];
+}
+
+function getCurrentRelease() {
+  const series = getCurrentSeries();
+  if (!series) return null;
+  const release = getReleases(series).find((entry) => entry.id === state.currentReleaseId);
+  return release || getReleases(series)[0] || null;
+}
+
+function getReleaseChapters(series, releaseId) {
+  const release = getReleases(series).find((entry) => entry.id === releaseId);
+  if (!release) return [];
+  return (release.chapterIds || [])
+    .map((id) => state.chapterMap.get(id))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const av = Number.isFinite(a.chapterSort) ? a.chapterSort : (Number.isFinite(a.chapter) ? a.chapter : 0);
+      const bv = Number.isFinite(b.chapterSort) ? b.chapterSort : (Number.isFinite(b.chapter) ? b.chapter : 0);
+      if (av !== bv) return av - bv;
+      return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+    });
+}
+
+function firstSeriesChapter(series) {
+  const releases = getReleases(series);
+  for (const release of releases) {
+    const first = getReleaseChapters(series, release.id)[0];
+    if (first) return first;
   }
+  return null;
 }
 
-function pinchDistance(touches) {
-  const [a, b] = touches;
-  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+function getCurrentChapter() {
+  return state.chapterMap.get(state.currentChapterId) || null;
 }
 
-async function installApp() {
-  if (!state.installPrompt) return;
-  await state.installPrompt.prompt();
-  state.installPrompt = null;
-  state.readState.installDismissed = true;
-  saveState();
-  renderShell();
-  if (state.chapter) renderReader();
+function firstSeriesThumb(series) {
+  const first = firstSeriesChapter(series);
+  return first?.thumb || first?.pages?.[0]?.url || null;
 }
 
-function showToast(message) {
-  let toast = document.querySelector('.toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.className = 'toast';
-    document.body.appendChild(toast);
+function getBookSpread(pages, currentPage) {
+  const wide = window.innerWidth >= 1100;
+  const canDouble = wide && pages.length > 1;
+
+  if (!canDouble) {
+    return {
+      single: true,
+      left: null,
+      right: pages[currentPage] || pages[0] || null,
+    };
   }
-  toast.textContent = message;
-  toast.classList.add('visible');
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => toast.classList.remove('visible'), 2200);
-}
-showToast.timer = null;
 
-function formatBytes(bytes) {
-  if (!bytes) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let value = bytes;
-  let index = 0;
-  while (value >= 1024 && index < units.length - 1) {
-    value /= 1024;
-    index += 1;
-  }
-  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+  const start = Math.floor(currentPage / 2) * 2;
+  return {
+    single: false,
+    left: pages[start] || null,
+    right: pages[start + 1] || pages[start] || null,
+  };
+}
+
+function releaseDisplayName(series, release) {
+  if (!release) return '';
+  if (series?.id === 'lucky-star') return releaseTomTitle(release);
+  return release.title || release.id;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function escapeHtml(value) {
-  return String(value).replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    await navigator.serviceWorker.register('/luckystar/sw.js');
+  } catch (error) {
+    console.error('SW register failed', error);
+  }
 }
 
 window.render_game_to_text = () => JSON.stringify({
+  view: state.view,
+  seriesId: state.currentSeriesId,
+  releaseId: state.currentReleaseId,
+  chapterId: state.currentChapterId,
+  page: state.currentPage,
   mode: state.mode,
-  chapter: state.chapter?.id || null,
-  currentPage: state.currentPage,
-  pageCount: state.pages.length,
-  filter: state.filter,
+  drawerOpen: state.drawerOpen,
   zoom: state.zoom,
-  offlineCount: state.offlineCount,
-  downloading: state.downloading,
-  selectedTitle: state.chapter?.title || null,
-  mobileLibraryOpen: state.mobileLibraryOpen,
-  activeDownloads: state.activeDownloads,
-  flipDirection: state.flipDirection,
 });
-window.advanceTime = async (ms = 16) => new Promise((resolve) => setTimeout(resolve, ms));
 
 boot();
