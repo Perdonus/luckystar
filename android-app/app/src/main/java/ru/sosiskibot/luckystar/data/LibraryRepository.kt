@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import ru.sosiskibot.luckystar.diag.AppLogger
 import ru.sosiskibot.luckystar.offline.OfflineDownloadDatabase
 import java.io.File
 import java.io.IOException
@@ -27,6 +28,7 @@ class LibraryRepository(private val context: Context) {
         val cached = inMemoryLibrary
         val now = System.currentTimeMillis()
         if (!forceRefresh && cached != null && now - inMemoryLoadedAt < MEMORY_CACHE_TTL_MS) {
+            AppLogger.i("LibraryRepository", "Using in-memory library cache")
             return@withContext cached
         }
 
@@ -70,14 +72,19 @@ class LibraryRepository(private val context: Context) {
 
         inMemoryLibrary = mapped
         inMemoryLoadedAt = now
+        AppLogger.i("LibraryRepository", "Library mapped: series=${mapped.size}")
         mapped
     }
 
     suspend fun getChapter(chapterId: String): LibraryChapter? {
-        return getLibrary(forceRefresh = false).asSequence()
+        val chapter = getLibrary(forceRefresh = false).asSequence()
             .flatMap { it.releases.asSequence() }
             .flatMap { it.chapters.asSequence() }
             .firstOrNull { it.id == chapterId }
+        if (chapter == null) {
+            AppLogger.w("LibraryRepository", "Chapter not found: ${chapterId}")
+        }
+        return chapter
     }
 
     fun getProgress(chapterId: String): ReaderProgress {
@@ -100,18 +107,26 @@ class LibraryRepository(private val context: Context) {
     fun getLastChapterId(): String? = prefs.getString("last_chapter_id", null)
 
     private suspend fun loadLibrary(): LibraryResponse = withContext(Dispatchers.IO) {
-        val remote = runCatching { fetchRemoteLibrary() }.getOrNull()
-        if (remote != null) {
+        val remoteResult = runCatching { fetchRemoteLibrary() }
+        remoteResult.getOrNull()?.let { remote ->
+            AppLogger.i("LibraryRepository", "Remote library fetched successfully")
             persistLibraryCache(remote)
             return@withContext remote
         }
 
+        remoteResult.exceptionOrNull()?.let { error ->
+            AppLogger.w("LibraryRepository", "Remote library fetch failed, trying cache", error)
+        }
+
         val cached = readCachedLibrary()
         if (cached != null) {
+            AppLogger.i("LibraryRepository", "Using cached library manifest")
             return@withContext cached
         }
 
-        throw IOException("Library unavailable: remote fetch failed and no local cache")
+        val error = IOException("Library unavailable: remote fetch failed and no local cache")
+        AppLogger.e("LibraryRepository", "Library unavailable", error)
+        throw error
     }
 
     private suspend fun fetchRemoteLibrary(): LibraryResponse = withContext(Dispatchers.IO) {

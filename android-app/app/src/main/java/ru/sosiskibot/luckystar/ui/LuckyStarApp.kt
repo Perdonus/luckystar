@@ -2,8 +2,10 @@ package ru.sosiskibot.luckystar.ui
 
 import android.Manifest
 import android.app.Application
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -102,6 +104,7 @@ import ru.sosiskibot.luckystar.data.LibraryRelease
 import ru.sosiskibot.luckystar.data.LibraryRepository
 import ru.sosiskibot.luckystar.data.LibrarySeries
 import ru.sosiskibot.luckystar.data.ReadingProgressSummary
+import ru.sosiskibot.luckystar.diag.AppLogger
 import ru.sosiskibot.luckystar.offline.DownloadProgress
 import ru.sosiskibot.luckystar.offline.DownloadWorkScheduler
 import ru.sosiskibot.luckystar.offline.OfflineDownloadDatabase
@@ -178,6 +181,7 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
             runCatching {
                 repository.getLibrary(forceRefresh = true)
             }.onSuccess { series ->
+                AppLogger.i("Library", "Library loaded: series=${series.size}")
                 val lastChapterId = repository.getLastChapterId()
                 val lastChapter = findChapter(series, lastChapterId)
                 val selectedSeriesId = lastChapter?.seriesId ?: series.firstOrNull()?.id
@@ -194,6 +198,7 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
                     lastChapterId = lastChapterId,
                 )
             }.onFailure { throwable ->
+                AppLogger.e("Library", "Failed to load library", throwable)
                 _library.value = LibraryUiState(
                     loading = false,
                     errorMessage = throwable.message ?: "Не удалось загрузить библиотеку",
@@ -232,6 +237,7 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val chapter = repository.getChapter(chapterId) ?: return@launch
             val nextChapter = findNextChapter(_library.value.series, chapter.id)
+            AppLogger.i("Reader", "Open chapter=${chapter.id} pages=${chapter.pages.size} next=${nextChapter?.id ?: "none"}")
             val maxIndex = (chapter.pages.size - 1).coerceAtLeast(0)
             val progress = repository.getProgress(chapterId)
             _reader.value = ReaderUiState(
@@ -254,6 +260,7 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun openNextChapter() {
         val nextChapterId = _reader.value.nextChapterId ?: return
+        AppLogger.i("Reader", "Advance to next chapter=${nextChapterId}")
         openChapter(nextChapterId)
     }
 
@@ -297,6 +304,7 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun downloadAll() {
         viewModelScope.launch {
+            AppLogger.i("OfflineDownload", "Download-all requested from UI")
             downloadScheduler.enqueueDownloadAll(
                 baseUrl = "https://sosiskibot.ru/luckystar/",
                 forceRedownload = false,
@@ -339,7 +347,10 @@ fun LuckyStarApp() {
         if (pendingDownload) {
             pendingDownload = false
             if (granted) {
+                AppLogger.i("Permissions", "Notification permission granted")
                 vm.downloadAll()
+            } else {
+                AppLogger.w("Permissions", "Notification permission denied")
             }
         }
     }
@@ -447,6 +458,7 @@ private fun LibraryScreen(
 ) {
     val selectedSeries = state.series.firstOrNull { it.id == state.selectedSeriesId }
     val selectedRelease = selectedSeries?.releases?.firstOrNull { it.id == state.selectedReleaseId }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -468,6 +480,9 @@ private fun LibraryScreen(
                     }
                 },
                 actions = {
+                    TextButton(onClick = { copyLogs(context) }) {
+                        Text("Копировать")
+                    }
                     if (state.stage == LibraryStage.SERIES) {
                         IconButton(onClick = onDownloadAll) {
                             Icon(Icons.Outlined.Download, contentDescription = "Скачать всё")
@@ -795,6 +810,7 @@ private fun ReaderScreen(
     onToggleControls: () -> Unit,
 ) {
     val chapter = state.chapter ?: return
+    val context = LocalContext.current
     val pageCount = chapter.pages.size
     val currentUrl = chapter.pages.getOrNull(state.pageIndex)
     val previousUrl = chapter.pages.getOrNull(state.pageIndex - 1)
@@ -908,6 +924,11 @@ private fun ReaderScreen(
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.Outlined.ArrowBack, contentDescription = "Назад")
+                        }
+                    },
+                    actions = {
+                        TextButton(onClick = { copyLogs(context) }) {
+                            Text("Копировать")
                         }
                     },
                 )
@@ -1280,6 +1301,12 @@ private fun seriesCover(series: LibrarySeries): String? {
 
     if (!thumb.isNullOrBlank()) return thumb
     return series.bannerUrl.takeUnless { it.endsWith(".svg", ignoreCase = true) || it.isBlank() }
+}
+
+private fun copyLogs(context: Context) {
+    val copied = AppLogger.copyLogsToClipboard(context)
+    val message = if (copied) "Логи скопированы" else "Не удалось скопировать логи"
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
 
 private fun clampPan(

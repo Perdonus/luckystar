@@ -23,6 +23,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import ru.sosiskibot.luckystar.diag.AppLogger
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -164,6 +165,7 @@ class OfflineDownloadRepository(
         forceRedownload: Boolean = false,
         onProgress: suspend (DownloadProgress) -> Unit = {},
     ) {
+        AppLogger.i("OfflineDownload", "Starting download-all: baseUrl=${baseUrl} force=${forceRedownload}")
         val manifestUrl = normalizeBaseUrl(baseUrl) + "data/library.json"
         val manifestBody = httpGetBytes(manifestUrl)
         val manifest = json.decodeFromString<OfflineLibraryDto>(manifestBody.decodeToString())
@@ -178,7 +180,10 @@ class OfflineDownloadRepository(
         var downloadedPages = 0
         var bytesDownloaded = 0L
 
+        AppLogger.i("OfflineDownload", "Manifest ready: chapters=${chapterMap.size} pages=${totalPages}")
+
         if (forceRedownload) {
+            AppLogger.i("OfflineDownload", "Force redownload enabled, clearing offline cache")
             dao.clearOfflinePages()
             cacheRoot(context).deleteRecursively()
         }
@@ -191,6 +196,9 @@ class OfflineDownloadRepository(
             val existing = existingByPageId[pageId]
             if (!forceRedownload && existing != null && hasUsableLocalPage(existing)) {
                 downloadedPages += 1
+                if (downloadedPages == 1 || downloadedPages % 25 == 0 || downloadedPages == totalPages) {
+                    AppLogger.i("OfflineDownload", "Progress ${downloadedPages}/${totalPages} (cached)")
+                }
                 onProgress(writeState("running", downloadedPages, totalPages, bytesDownloaded, null))
                 continue
             }
@@ -216,9 +224,13 @@ class OfflineDownloadRepository(
             )
 
             downloadedPages += 1
+            if (downloadedPages == 1 || downloadedPages % 25 == 0 || downloadedPages == totalPages) {
+                AppLogger.i("OfflineDownload", "Progress ${downloadedPages}/${totalPages} bytes=${bytesDownloaded}")
+            }
             onProgress(writeState("running", downloadedPages, totalPages, bytesDownloaded, null))
         }
 
+        AppLogger.i("OfflineDownload", "Download-all completed: ${downloadedPages}/${totalPages} pages")
         onProgress(writeState("completed", downloadedPages, totalPages, bytesDownloaded, null))
     }
 
@@ -240,6 +252,7 @@ class OfflineDownloadRepository(
     }
 
     suspend fun markFailed(message: String) {
+        AppLogger.e("OfflineDownload", "Download marked as failed: ${message}")
         val prev = dao.getState()
         writeState(
             status = "failed",
@@ -273,6 +286,7 @@ class OfflineDownloadRepository(
         val req = Request.Builder().url(url).get().build()
         client.newCall(req).execute().use { res ->
             if (!res.isSuccessful) {
+                AppLogger.e("OfflineDownload", "HTTP ${res.code} while fetching ${url}")
                 throw IOException("HTTP ${res.code} for $url")
             }
             return res.body?.bytes() ?: ByteArray(0)
@@ -318,6 +332,8 @@ class DownloadAllWorker(
             ?: return Result.failure(workDataOf(KEY_ERROR to "Missing base url"))
         val force = inputData.getBoolean(KEY_FORCE, false)
 
+        AppLogger.i("OfflineDownloadWorker", "Worker started: baseUrl=${baseUrl} force=${force}")
+
         val db = OfflineDownloadDatabase.get(applicationContext)
         val repository = OfflineDownloadRepository(applicationContext, db.dao())
 
@@ -343,14 +359,18 @@ class DownloadAllWorker(
                 setProgress(workDataOf(KEY_PROGRESS to percent))
             }
             DownloadNotifier(applicationContext).notifyCompleted()
+            AppLogger.i("OfflineDownloadWorker", "Worker completed successfully")
             Result.success()
         } catch (ce: CancellationException) {
+            AppLogger.w("OfflineDownloadWorker", "Worker cancelled", ce)
             throw ce
         } catch (io: IOException) {
+            AppLogger.e("OfflineDownloadWorker", "Transient download error", io)
             repository.markFailed(io.message ?: "Download failed")
             DownloadNotifier(applicationContext).notifyFailed(io.message ?: "Download failed")
             Result.retry()
         } catch (t: Throwable) {
+            AppLogger.e("OfflineDownloadWorker", "Fatal download error", t)
             repository.markFailed(t.message ?: "Download failed")
             DownloadNotifier(applicationContext).notifyFailed(t.message ?: "Download failed")
             Result.failure(workDataOf(KEY_ERROR to (t.message ?: "Download failed")))
@@ -368,6 +388,7 @@ class DownloadAllWorker(
 class DownloadWorkScheduler(private val context: Context) {
 
     fun enqueueDownloadAll(baseUrl: String, forceRedownload: Boolean = false) {
+        AppLogger.i("OfflineDownload", "Enqueue worker: baseUrl=${baseUrl} force=${forceRedownload}")
         val req = OneTimeWorkRequestBuilder<DownloadAllWorker>()
             .setInputData(
                 Data.Builder()
