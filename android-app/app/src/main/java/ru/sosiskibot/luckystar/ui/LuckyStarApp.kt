@@ -26,8 +26,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.calculateBottomPadding
-import androidx.compose.foundation.layout.calculateTopPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,7 +36,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -479,7 +476,7 @@ private fun LibraryScreen(
                 },
             )
         },
-    ) { padding ->
+    ) { _ ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -975,7 +972,6 @@ private fun ReaderScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
                 .background(MaterialTheme.colorScheme.background)
                 .onSizeChanged { viewportSize = it }
                 .transformable(state = transformState)
@@ -1155,7 +1151,7 @@ private fun PageSheet(
 ) {
     Surface(
         modifier = modifier,
-        shape = RectangleShape,
+        shape = RoundedCornerShape(0.dp),
         tonalElevation = 1.dp,
         shadowElevation = 0.dp,
         color = MaterialTheme.colorScheme.surface,
