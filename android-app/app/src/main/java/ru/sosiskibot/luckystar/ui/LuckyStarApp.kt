@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.calculateBottomPadding
+import androidx.compose.foundation.layout.calculateTopPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,6 +38,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -129,6 +132,8 @@ data class ReaderUiState(
     val chapter: LibraryChapter? = null,
     val pageIndex: Int = 0,
     val controlsVisible: Boolean = true,
+    val nextChapterId: String? = null,
+    val nextChapterPreviewUrl: String? = null,
 )
 
 private data class ProgressUi(
@@ -229,12 +234,15 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
     fun openChapter(chapterId: String) {
         viewModelScope.launch {
             val chapter = repository.getChapter(chapterId) ?: return@launch
+            val nextChapter = findNextChapter(_library.value.series, chapter.id)
             val maxIndex = (chapter.pages.size - 1).coerceAtLeast(0)
             val progress = repository.getProgress(chapterId)
             _reader.value = ReaderUiState(
                 chapter = chapter,
                 pageIndex = progress.pageIndex.coerceIn(0, maxIndex),
                 controlsVisible = true,
+                nextChapterId = nextChapter?.id,
+                nextChapterPreviewUrl = nextChapter?.pages?.firstOrNull(),
             )
             _library.update {
                 it.copy(
@@ -245,6 +253,11 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             }
         }
+    }
+
+    fun openNextChapter() {
+        val nextChapterId = _reader.value.nextChapterId ?: return
+        openChapter(nextChapterId)
     }
 
     fun setPage(index: Int) {
@@ -301,6 +314,17 @@ class LuckyStarViewModel(application: Application) : AndroidViewModel(applicatio
             .flatMap { it.chapters.asSequence() }
             .firstOrNull { it.id == chapterId }
     }
+
+    private fun findNextChapter(series: List<LibrarySeries>, chapterId: String): LibraryChapter? {
+        series.forEach { currentSeries ->
+            val chapters = currentSeries.releases.flatMap { it.chapters }
+            val currentIndex = chapters.indexOfFirst { it.id == chapterId }
+            if (currentIndex != -1) {
+                return chapters.getOrNull(currentIndex + 1)
+            }
+        }
+        return null
+    }
 }
 
 @Composable
@@ -351,6 +375,7 @@ fun LuckyStarApp() {
         reader.chapter != null -> ReaderScreen(
             state = reader,
             onBack = vm::handleBack,
+            onOpenNextChapter = vm::openNextChapter,
             onSetPage = vm::setPage,
             onToggleControls = vm::toggleReaderControls,
         )
@@ -768,6 +793,7 @@ private fun CompletionBadge(
 private fun ReaderScreen(
     state: ReaderUiState,
     onBack: () -> Unit,
+    onOpenNextChapter: () -> Unit,
     onSetPage: (Int) -> Unit,
     onToggleControls: () -> Unit,
 ) {
@@ -786,6 +812,9 @@ private fun ReaderScreen(
     var animationJob by remember { mutableStateOf<Job?>(null) }
 
     val canTurnPage = zoom <= 1.01f
+    val hasNextChapter = state.nextChapterId != null
+    val isLastPage = pageCount > 0 && state.pageIndex >= chapter.pages.lastIndex
+    val canAdvanceToNextChapter = hasNextChapter && isLastPage
     val transformState = rememberTransformableState { zoomChange, panChange, _ ->
         val nextZoom = (zoom * zoomChange).coerceIn(1f, 4.5f)
         zoom = nextZoom
@@ -826,6 +855,17 @@ private fun ReaderScreen(
     fun animatePageTurn(direction: Int) {
         if (!canTurnPage) return
         val targetIndex = state.pageIndex + direction
+        if (direction > 0 && targetIndex !in chapter.pages.indices) {
+            if (!canAdvanceToNextChapter) return
+            animationDirection = direction
+            animateToFraction(direction.toFloat()) {
+                onOpenNextChapter()
+                flipFraction = 0f
+                animationDirection = 0
+                panOffset = Offset.Zero
+            }
+            return
+        }
         if (targetIndex !in chapter.pages.indices) return
         animationDirection = direction
         animateToFraction(direction.toFloat()) {
@@ -838,7 +878,7 @@ private fun ReaderScreen(
 
     fun settleDrag() {
         when {
-            flipFraction > 0.18f && nextUrl != null -> animatePageTurn(1)
+            flipFraction > 0.18f && (nextUrl != null || canAdvanceToNextChapter) -> animatePageTurn(1)
             flipFraction < -0.18f && previousUrl != null -> animatePageTurn(-1)
             else -> animateToFraction(0f) {
                 flipFraction = 0f
@@ -922,9 +962,9 @@ private fun ReaderScreen(
                         } else {
                             OutlinedButton(
                                 onClick = { animatePageTurn(1) },
-                                enabled = nextUrl != null,
+                                enabled = nextUrl != null || canAdvanceToNextChapter,
                             ) {
-                                Text("Дальше")
+                                Text(if (canAdvanceToNextChapter) "След. глава" else "Дальше")
                             }
                         }
                     }
@@ -935,7 +975,7 @@ private fun ReaderScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
                 .background(MaterialTheme.colorScheme.background)
                 .onSizeChanged { viewportSize = it }
                 .transformable(state = transformState)
@@ -988,7 +1028,7 @@ private fun ReaderScreen(
                                 val width = viewportSize.width.toFloat().coerceAtLeast(1f)
                                 flipFraction = (flipFraction - (dragAmount / width)).coerceIn(
                                     minimumValue = if (previousUrl != null) -1f else 0f,
-                                    maximumValue = if (nextUrl != null) 1f else 0f,
+                                    maximumValue = if (nextUrl != null || canAdvanceToNextChapter) 1f else 0f,
                                 )
                                 animationDirection = when {
                                     flipFraction > 0f -> 1
@@ -1011,7 +1051,7 @@ private fun ReaderScreen(
             ReaderPageScene(
                 currentUrl = currentUrl,
                 adjacentUrl = when {
-                    flipFraction > 0f || animationDirection > 0 -> nextUrl
+                    flipFraction > 0f || animationDirection > 0 -> nextUrl ?: state.nextChapterPreviewUrl
                     flipFraction < 0f || animationDirection < 0 -> previousUrl
                     else -> null
                 },
@@ -1035,9 +1075,7 @@ private fun ReaderPageScene(
     val flippingForward = flipFraction >= 0f
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(4.dp),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         if (adjacentUrl != null && absoluteFlip > 0f) {
@@ -1045,7 +1083,6 @@ private fun ReaderPageScene(
                 imageUrl = adjacentUrl,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(4.dp)
                     .graphicsLayer {
                         alpha = (0.3f + absoluteFlip * 0.7f).coerceIn(0f, 1f)
                         scaleX = 0.96f + (absoluteFlip * 0.04f)
@@ -1063,7 +1100,6 @@ private fun ReaderPageScene(
             imageUrl = currentUrl,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(4.dp)
                 .graphicsLayer {
                     scaleX = zoom
                     scaleY = zoom
@@ -1090,8 +1126,6 @@ private fun ReaderPageScene(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 18.dp)
-                    .clip(RoundedCornerShape(20.dp))
                     .background(
                         Brush.horizontalGradient(
                             colors = if (flippingForward) {
@@ -1121,9 +1155,9 @@ private fun PageSheet(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
+        shape = RectangleShape,
         tonalElevation = 1.dp,
-        shadowElevation = 12.dp,
+        shadowElevation = 0.dp,
         color = MaterialTheme.colorScheme.surface,
     ) {
         Box(
