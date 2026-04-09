@@ -109,7 +109,7 @@ import ru.sosiskibot.luckystar.offline.OfflineDownloadRepository
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private enum class LibraryStage {
+enum class LibraryStage {
     SERIES,
     RELEASES,
     CHAPTERS,
